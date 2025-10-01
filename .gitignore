@@ -1,0 +1,10 @@
+# Node.js
+node_modules/
+.env
+.DS_Store
+npm-debug.log
+package-lock.json
+
+# React
+frontend/node_modules/
+frontend/build/
