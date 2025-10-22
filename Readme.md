@@ -80,4 +80,4 @@ Cristian Camilo Cuevas Castañeda
 CTO
 
 Michael Malmgren
-CO
+CEO
