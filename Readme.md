@@ -34,12 +34,13 @@ This first version (MVP) includes a **web scraper** that extracts meaningful inf
 
 ## ⚡ Project Structure
 
+```
 metric-mind-project-1/
 ├── frontend/ # React app (user interface)
 ├── backend/ # Express + Puppeteer server
 ├── .gitignore
 └── README.md
-
+```
 
 ---
 
