@@ -1,66 +1,99 @@
-const puppeteer = require('puppeteer');
+/**
+ * webScraper.js
+ * --------------------------------------------------
+ * Scrapes websites with Puppeteer to extract:
+ * - Title, description, OG image
+ * - Social media links (Facebook, Instagram, X/Twitter, TikTok, YouTube, LinkedIn)
+ * - Optionally calls socialScraper.js for deeper data
+ */
+
+const puppeteer = require("puppeteer");
+const socialScraper = require("./socialScraper");
 
 /**
- * Función para scrapear cualquier página web dinámica
+ * Scrape a website and extract metadata + social links
  * @param {string} url
+ * @returns {Object} Extracted data
  */
-async function scrapWebsite(url) {
+async function webScraper(url) {
   let browser;
   try {
     browser = await puppeteer.launch({
       headless: true,
-      executablePath: '/usr/bin/chromium',
       args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-zygote'
-      ]
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-zygote",
+      ],
     });
 
     const page = await browser.newPage();
 
-    // Evitar bloqueos de algunos sitios
     await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36'
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+      "(KHTML, like Gecko) Chrome/115.0 Safari/537.36"
     );
 
-    await page.goto(url, { waitUntil: 'networkidle2' }); // espera que cargue el JS
+    console.log(`🌐 Scraping website: ${url}`);
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
-    // Extraer título
+    // Extract metadata
     const title = await page.title();
+    const description = await page.$eval("meta[name='description']", el => el.content).catch(() => "");
+    const ogImage = await page.$eval("meta[property='og:image']", el => el.content).catch(() => "");
 
-    // Extraer meta description
-    const description = await page.$eval(
-      'meta[name="description"]',
-      el => el.content
-    ).catch(() => '');
+    // Extract and normalize links
+    const allLinks = await page.$$eval("a", links => links.map(l => l.href.trim()).filter(Boolean));
+    const baseUrl = new URL(url).origin;
 
-    // Extraer enlaces a redes sociales (facebook, instagram, twitter)
-    const socialLinks = await page.$$eval('a', links =>
-      links
-        .map(l => l.href)
-        .filter(href =>
-          href.includes('facebook.com') ||
-          href.includes('instagram.com') ||
-          href.includes('twitter.com')
-        )
-    );
+    const cleanLinks = allLinks.map(link => {
+      if (link.startsWith("//")) return "https:" + link;
+      if (link.startsWith("/")) return baseUrl + link;
+      return link;
+    });
+
+    // Identify social media links
+    const socialDomains = [
+      "facebook.com",
+      "instagram.com",
+      "twitter.com",
+      "x.com",
+      "tiktok.com",
+      "linkedin.com",
+      "youtube.com",
+      "youtu.be",
+    ];
+
+    const socialLinks = [
+      ...new Set(cleanLinks.filter(link => socialDomains.some(domain => link.includes(domain)))),
+    ];
+
+    console.log(`🔗 Found ${socialLinks.length} social media links`);
+
+    // Scrape social profiles for deeper data
+    let socialData = {};
+    if (socialLinks.length > 0) {
+      console.log("🕵️ Fetching details from social profiles...");
+      socialData = await socialScraper(socialLinks, browser);
+    }
 
     await browser.close();
 
-    return { title, description, socialLinks };
+    return {
+      url,
+      title,
+      description,
+      ogImage,
+      socialLinks,
+      socialData,
+    };
   } catch (error) {
     if (browser) await browser.close();
-    console.error('Error scraping website:', error.message);
-    return { error: 'No se pudo scrapear la página. Tal vez requiere renderizado dinámico.' };
+    console.error("❌ Error scraping website:", error.message);
+    return { error: "Failed to scrape the website." };
   }
 }
 
-// Prueba rápida
-if (require.main === module) {
-  scrapWebsite('https://www.dominos.com.co').then(console.log);
-}
-
-module.exports = scrapWebsite;
+module.exports = webScraper;

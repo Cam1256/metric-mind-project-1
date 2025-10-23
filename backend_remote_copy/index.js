@@ -1,34 +1,41 @@
-const express = require('express');
-const cors = require('cors');
+const express = require("express");
+const cors = require("cors");
+const scrapWebsite = require("./scraper/webScraper");
 
 const app = express();
+
+// ✅ CORS — allow only production domains
 app.use(cors({
-  origin: ['https://metricmind.cloud', 'https://www.metricmind.cloud']
+  origin: ["https://metricmind.cloud", "https://www.metricmind.cloud"]
 }));
 
 app.use(express.json());
 
-const scrapWebsite = require('./scraper/webScraper'); // <--- agregamos esto
-
-
 const PORT = process.env.PORT || 5000;
 
-
-app.get('/', (req, res) => {
-  res.send('Backend Metric Mind funcionando ✅');
+// Health check
+app.get("/", (req, res) => {
+  res.send("✅ Backend MetricMind running successfully");
 });
 
-// NUEVO ENDPOINT PARA SCRAPING
-app.get('/scrap', async (req, res) => {
+// ✅ Web scraping endpoint
+app.get("/scrap", async (req, res) => {
   const url = req.query.url;
-  if (!url) return res.status(400).send({ error: 'Falta parámetro url' });
+  if (!url) {
+    return res.status(400).json({ error: "Missing 'url' parameter" });
+  }
 
-  const result = await scrapWebsite(url);
-  if (!result) return res.status(500).send({ error: 'Error al scrapear' });
-
-  res.send(result);
+  try {
+    console.log(`🕸️ Received scraping request for: ${url}`);
+    const result = await scrapWebsite(url);
+    res.json(result);
+  } catch (err) {
+    console.error("❌ Scraping failed:", err.message);
+    res.status(500).json({ error: "Internal scraping error" });
+  }
 });
 
-app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
-
-
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
