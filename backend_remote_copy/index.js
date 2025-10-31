@@ -36,6 +36,8 @@ app.get("/scrap", async (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+// Start server
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
