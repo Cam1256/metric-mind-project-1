@@ -1,11 +1,23 @@
-const puppeteer = require("puppeteer");
+/**
+ * webScraper.js
+ * --------------------------------------------------
+ * Scrapes websites with Puppeteer to extract:
+ * - Title, description, OG image
+ * - Social media links (Facebook, Instagram, X/Twitter, TikTok, YouTube, LinkedIn)
+ * - Optionally calls socialScraper.js for deeper data
+ */
 
-async function scrapWebsite(url) {
+const puppeteer = require("puppeteer");
+const socialScraper = require("./socialScraper");
+
+/**
+ * Scrape a website and extract metadata + social links
+ * @param {string} url
+ * @returns {Object} Extracted data
+ */
+async function webScraper(url) {
   let browser;
   try {
-    console.log(`🔍 Launching Puppeteer to scrape: ${url}`);
-
-    // Configuración optimizada para VPS (sin GUI)
     browser = await puppeteer.launch({
       headless: true,
       args: [
@@ -14,66 +26,74 @@ async function scrapWebsite(url) {
         "--disable-dev-shm-usage",
         "--disable-gpu",
         "--no-zygote",
-        "--single-process"
-      ]
+      ],
     });
 
     const page = await browser.newPage();
 
-    // Simula un navegador real
     await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-      "AppleWebKit/537.36 (KHTML, like Gecko) " +
-      "Chrome/120.0.0.0 Safari/537.36"
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+      "(KHTML, like Gecko) Chrome/115.0 Safari/537.36"
     );
 
-    await page.setViewport({ width: 1366, height: 768 });
+    console.log(`🌐 Scraping website: ${url}`);
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
-    // Timeout de carga de página
-    await page.goto(url, {
-      waitUntil: "domcontentloaded",
-      timeout: 45000
+    // Extract metadata
+    const title = await page.title();
+    const description = await page.$eval("meta[name='description']", el => el.content).catch(() => "");
+    const ogImage = await page.$eval("meta[property='og:image']", el => el.content).catch(() => "");
+
+    // Extract and normalize links
+    const allLinks = await page.$$eval("a", links => links.map(l => l.href.trim()).filter(Boolean));
+    const baseUrl = new URL(url).origin;
+
+    const cleanLinks = allLinks.map(link => {
+      if (link.startsWith("//")) return "https:" + link;
+      if (link.startsWith("/")) return baseUrl + link;
+      return link;
     });
 
-    // Espera un poco para asegurar carga de JS dinámico
-    await page.waitForTimeout(3000);
+    // Identify social media links
+    const socialDomains = [
+      "facebook.com",
+      "instagram.com",
+      "twitter.com",
+      "x.com",
+      "tiktok.com",
+      "linkedin.com",
+      "youtube.com",
+      "youtu.be",
+    ];
 
-    // Extrae datos básicos
-    const title = await page.title();
-    const description = await page.$eval(
-      "meta[name='description']",
-      el => el.content
-    ).catch(() => "");
+    const socialLinks = [
+      ...new Set(cleanLinks.filter(link => socialDomains.some(domain => link.includes(domain)))),
+    ];
 
-    const ogImage = await page.$eval(
-      "meta[property='og:image']",
-      el => el.content
-    ).catch(() => "");
+    console.log(`🔗 Found ${socialLinks.length} social media links`);
 
-    // Extrae los links a redes sociales (si los hay)
-    const socialLinks = await page.$$eval("a[href]", links =>
-      links
-        .map(a => a.href)
-        .filter(h =>
-          /(facebook|twitter|instagram|linkedin|youtube|tiktok)/i.test(h)
-        )
-    );
+    // Scrape social profiles for deeper data
+    let socialData = {};
+    if (socialLinks.length > 0) {
+      console.log("🕵️ Fetching details from social profiles...");
+      socialData = await socialScraper(socialLinks, browser);
+    }
 
-    // Retorna resultado
+    await browser.close();
+
     return {
       url,
       title,
       description,
       ogImage,
       socialLinks,
-      timestamp: new Date().toISOString()
+      socialData,
     };
-  } catch (err) {
-    console.error("❌ Error during Puppeteer scrape:", err.message);
-    return { error: "Scraping failed", details: err.message };
-  } finally {
+  } catch (error) {
     if (browser) await browser.close();
+    console.error("❌ Error scraping website:", error.message);
+    return { error: "Failed to scrape the website." };
   }
 }
 
-module.exports = scrapWebsite;
+module.exports = webScraper;
