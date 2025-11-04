@@ -1,23 +1,21 @@
 /**
- * webScraper.js
- * --------------------------------------------------
- * Scrapes websites with Puppeteer to extract:
- * - Title, description, OG image
- * - Social media links (Facebook, Instagram, X/Twitter, TikTok, YouTube, LinkedIn)
- * - Optionally calls socialScraper.js for deeper data
+ * webScraper.js (versión estable + compatibilidad total)
  */
 
 const puppeteer = require("puppeteer");
 const socialScraper = require("./socialScraper");
 
-/**
- * Scrape a website and extract metadata + social links
- * @param {string} url
- * @returns {Object} Extracted data
- */
 async function webScraper(url) {
   let browser;
   try {
+    // Validar URL antes de lanzar Puppeteer
+    try {
+      new URL(url);
+    } catch {
+      console.error(`❌ Invalid URL skipped: ${url}`);
+      return { error: "Invalid URL" };
+    }
+
     browser = await puppeteer.launch({
       headless: true,
       args: [
@@ -26,25 +24,38 @@ async function webScraper(url) {
         "--disable-dev-shm-usage",
         "--disable-gpu",
         "--no-zygote",
+        "--single-process"
       ],
     });
 
     const page = await browser.newPage();
 
+    // Cabeceras avanzadas (anti-bot)
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-      "(KHTML, like Gecko) Chrome/115.0 Safari/537.36"
+      "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     );
 
-    console.log(`🌐 Scraping website: ${url}`);
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+    await page.setExtraHTTPHeaders({
+      "Accept-Language": "en-US,en;q=0.9",
+      "Upgrade-Insecure-Requests": "1",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache",
+    });
 
-    // Extract metadata
+    console.log(`🌐 Scraping website: ${url}`);
+
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
+
+    // Espera ligera (JS dinámico)
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Metadatos
     const title = await page.title();
     const description = await page.$eval("meta[name='description']", el => el.content).catch(() => "");
     const ogImage = await page.$eval("meta[property='og:image']", el => el.content).catch(() => "");
 
-    // Extract and normalize links
+    // Enlaces sociales
     const allLinks = await page.$$eval("a", links => links.map(l => l.href.trim()).filter(Boolean));
     const baseUrl = new URL(url).origin;
 
@@ -54,7 +65,6 @@ async function webScraper(url) {
       return link;
     });
 
-    // Identify social media links
     const socialDomains = [
       "facebook.com",
       "instagram.com",
@@ -66,13 +76,10 @@ async function webScraper(url) {
       "youtu.be",
     ];
 
-    const socialLinks = [
-      ...new Set(cleanLinks.filter(link => socialDomains.some(domain => link.includes(domain)))),
-    ];
+    const socialLinks = [...new Set(cleanLinks.filter(link => socialDomains.some(domain => link.includes(domain))))];
 
     console.log(`🔗 Found ${socialLinks.length} social media links`);
 
-    // Scrape social profiles for deeper data
     let socialData = {};
     if (socialLinks.length > 0) {
       console.log("🕵️ Fetching details from social profiles...");
@@ -91,8 +98,12 @@ async function webScraper(url) {
     };
   } catch (error) {
     if (browser) await browser.close();
-    console.error("❌ Error scraping website:", error.message);
-    return { error: "Failed to scrape the website." };
+    console.error("❌ Error scraping website:", error);
+    return {
+      error: "Failed to scrape the website.",
+      details: error.message,
+      stack: error.stack,
+    };
   }
 }
 
