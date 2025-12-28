@@ -16,6 +16,8 @@ const scrapWebsite = require("./scraper/webScraper");
 
 // Metrics
 const linkedinMetrics = require("./metrics/linkedinMetrics");
+const linkedinCallback = require("./auth/linkedinCallback");
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -40,11 +42,16 @@ app.use(cors({
 // SESSION (OBLIGATORIO para LinkedIn OAuth)
 app.use(cookieParser());
 
+
+
+
 app.use(express.json());
 
 /* =========================
    HEALTH CHECK
 ========================= */
+
+
 
 app.get("/", (req, res) => {
   res.send("✅ Backend MetricMind running successfully");
@@ -53,6 +60,8 @@ app.get("/", (req, res) => {
 /* =========================
    AUTH ROUTES
 ========================= */
+
+app.get("/auth/linkedin/callback", linkedinCallback);
 
 app.use("/auth", linkedinOAuth);
 app.use("/auth", facebookAuth);
