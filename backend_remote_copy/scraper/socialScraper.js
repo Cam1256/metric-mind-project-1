@@ -1,8 +1,7 @@
 /**
- * socialScraper.js (Safe Concurrent Version)
+ * socialScraper.js (Stable Fixed Version)
  * --------------------------------------------------
- * Avoids getting stuck on embedded or live video links.
- * Limits deep scraping and ensures backend always responds.
+ * Corrige errores de `undefined.match` y evita que Puppeteer rompa el flujo.
  */
 
 const puppeteer = require("puppeteer");
@@ -11,14 +10,16 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function socialScraper(socialLinks = [], existingBrowser = null) {
   if (!socialLinks.length) return { error: "No social links provided." };
 
-  // Filtrar duplicados y enlaces de riesgo (YouTube Live, Instagram TV, etc.)
   const filteredLinks = [
     ...new Set(
-      socialLinks.filter(link =>
-        !link.match(/(live|watch|playlist|embed|tv|utm_|feature=share)/i)
+      socialLinks.filter(
+        link =>
+          !link.match(
+            /(live|watch|playlist|embed|tv|utm_|feature=share|shorts)/i
+          )
       )
     ),
-  ].slice(0, 5); // procesar solo 5 enlaces como máximo
+  ].slice(0, 5);
 
   const browser =
     existingBrowser ||
@@ -38,19 +39,19 @@ async function socialScraper(socialLinks = [], existingBrowser = null) {
   const results = {};
 
   for (const url of filteredLinks) {
+    const platform = getPlatformName(url);
     try {
       console.log(`🔗 Scraping social: ${url}`);
-      const platform = getPlatformName(url);
 
       let data;
       try {
-        // deep scrape (max 8s)
         data = await Promise.race([
           scrapeDeep(page, url, platform),
-          timeoutAfter(8000, "Deep scrape timeout"),
+          timeoutAfter(10000, "Deep scrape timeout"),
         ]);
         data.mode = "deep";
-      } catch {
+      } catch (err) {
+        console.warn(`⚠️ Deep scrape failed (${platform}): ${err.message}`);
         data = await scrapeLight(url, platform);
         data.mode = "light";
       }
@@ -59,7 +60,7 @@ async function socialScraper(socialLinks = [], existingBrowser = null) {
       await delay(1000);
     } catch (err) {
       console.error(`❌ Error scraping ${url}:`, err.message);
-      results[url] = { error: err.message };
+      results[url] = { platform, error: err.message };
     }
   }
 
@@ -68,7 +69,6 @@ async function socialScraper(socialLinks = [], existingBrowser = null) {
 }
 
 /* --- Utilities --- */
-
 function timeoutAfter(ms, msg) {
   return new Promise((_, reject) =>
     setTimeout(() => reject(new Error(msg)), ms)
@@ -85,22 +85,118 @@ function getPlatformName(url) {
   return "unknown";
 }
 
+/* --- Main Deep Scraper --- */
 async function scrapeDeep(page, url, platform) {
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 7000 });
-  await delay(1500);
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 8000 });
+  await delay(3000);
 
+  switch (platform) {
+    case "linkedin":
+      return await scrapeLinkedIn(page, url);
+    case "tiktok":
+      return await scrapeTikTok(page, url);
+    case "instagram":
+      return await scrapeInstagram(page, url);
+    case "youtube":
+      return await scrapeYouTube(page, url);
+    default:
+      return await scrapeGeneric(page, url, platform);
+  }
+}
+
+/* --- Fallback Light Mode --- */
+async function scrapeLight(url, platform) {
+  return {
+    platform,
+    url,
+    name: "No name",
+    bio: "Skipped (light mode)",
+    followers: "Not available",
+  };
+}
+
+/* --- Platform Specific Scrapers --- */
+async function scrapeLinkedIn(page, url) {
   const data = await page.evaluate(() => {
-    const title = document.title || "";
-    const desc =
-      document.querySelector("meta[name='description']")?.content ||
-      document.querySelector("meta[property='og:description']")?.content ||
-      "";
-    const followers =
-      Array.from(document.querySelectorAll("*"))
-        .map(e => e.innerText)
-        .find(t => t.match(/\d+(\.\d+)?\s*(followers|seguidores)/i)) || null;
+    const clean = str => (str ? str.replace(/\s+/g, " ").trim() : "");
+    try {
+      const isCompany = location.pathname.includes("/company/");
+      const isProfile = location.pathname.includes("/in/");
 
-    return { title, desc, followers };
+      let name = document.title || "";
+      let bio = "";
+      let followers = "";
+
+      if (isCompany) {
+        bio =
+          document.querySelector("meta[name='description']")?.content ||
+          document.querySelector("p")?.innerText ||
+          "";
+        followers =
+          Array.from(document.querySelectorAll("*"))
+            .map(e => e.innerText)
+            .find(t =>
+              typeof t === "string" &&
+              t.match(/\d+(\.\d+)?\s*(followers|seguidores|empleados)/i)
+            ) || "";
+      } else if (isProfile) {
+        const ogTitle = document.querySelector("meta[property='og:title']")?.content;
+        const ogDesc = document.querySelector("meta[property='og:description']")?.content;
+
+        name = ogTitle || document.title;
+        bio = ogDesc || "";
+
+        followers =
+          Array.from(document.querySelectorAll("*"))
+            .map(e => e.innerText)
+            .find(t =>
+              typeof t === "string" &&
+              t.match(/\d+(\+)?\s*(conexiones|connections|followers)/i)
+            ) || "";
+      }
+
+      return {
+        platform: "linkedin",
+        url: location.href,
+        name: clean(name),
+        bio: clean(bio),
+        followers: clean(followers) || "Not available",
+      };
+    } catch (e) {
+      return {
+        platform: "linkedin",
+        url: location.href,
+        name: "No name",
+        bio: "Error parsing LinkedIn",
+        followers: "Not available",
+      };
+    }
+  });
+
+  return data;
+}
+
+async function scrapeGeneric(page, url, platform) {
+  const data = await page.evaluate(() => {
+    try {
+      const title = document.title || "";
+      const desc =
+        document.querySelector("meta[name='description']")?.content ||
+        document.querySelector("meta[property='og:description']")?.content ||
+        "";
+      const followers =
+        Array.from(document.querySelectorAll("*"))
+          .map(e => e.innerText)
+          .find(
+            t =>
+              typeof t === "string" &&
+              t.match(/\d+(\.\d+)?\s*(followers|seguidores)/i)
+          ) || "";
+
+      return { title, desc, followers };
+    } catch (err) {
+      return { title: "", desc: "", followers: "" };
+    }
   });
 
   return {
@@ -112,14 +208,105 @@ async function scrapeDeep(page, url, platform) {
   };
 }
 
-async function scrapeLight(url, platform) {
-  return {
-    platform,
-    url,
-    name: "No name",
-    bio: "Skipped (light mode)",
-    followers: "Not available",
-  };
+/* --- Others (same as before) --- */
+async function scrapeTikTok(page, url) {
+  const data = await page.evaluate(() => {
+    try {
+      const name =
+        document.querySelector("h1 strong")?.innerText ||
+        document.querySelector("meta[property='og:title']")?.content ||
+        document.title;
+      const bio =
+        document.querySelector("h2[data-e2e='user-bio']")?.innerText ||
+        document.querySelector("meta[property='og:description']")?.content ||
+        "";
+      const followers =
+        Array.from(document.querySelectorAll("*"))
+          .map(e => e.innerText)
+          .find(
+            t =>
+              typeof t === "string" &&
+              t.match(/\d+(\.\d+)?\s*(followers|seguidores)/i)
+          ) || "";
+
+      return {
+        platform: "tiktok",
+        url: location.href,
+        name,
+        bio,
+        followers: followers || "Not available",
+      };
+    } catch (e) {
+      return {
+        platform: "tiktok",
+        url: location.href,
+        name: "No name",
+        bio: "Error parsing TikTok",
+        followers: "Not available",
+      };
+    }
+  });
+  return data;
+}
+
+async function scrapeInstagram(page, url) {
+  const data = await page.evaluate(() => {
+    try {
+      const name = document.title.replace(/ \(@.*\)/, "");
+      const bio =
+        document.querySelector("meta[property='og:description']")?.content || "";
+      const followers =
+        bio.match(/([\d.,]+)\s(Followers|seguidores)/i)?.[1] || "";
+
+      return {
+        platform: "instagram",
+        url: location.href,
+        name,
+        bio,
+        followers: followers || "Not available",
+      };
+    } catch {
+      return {
+        platform: "instagram",
+        url: location.href,
+        name: "No name",
+        bio: "Error parsing Instagram",
+        followers: "Not available",
+      };
+    }
+  });
+  return data;
+}
+
+async function scrapeYouTube(page, url) {
+  const data = await page.evaluate(() => {
+    try {
+      const name = document.title.replace("- YouTube", "").trim();
+      const desc =
+        document.querySelector("meta[name='description']")?.content || "";
+      const match = document.documentElement.innerHTML.match(
+        /"subscriberCountText":\{"simpleText":"([^"]+)"/
+      );
+      const followers = match ? match[1] : "Not available";
+
+      return {
+        platform: "youtube",
+        url: location.href,
+        name,
+        bio: desc,
+        followers,
+      };
+    } catch {
+      return {
+        platform: "youtube",
+        url: location.href,
+        name: "No name",
+        bio: "Error parsing YouTube",
+        followers: "Not available",
+      };
+    }
+  });
+  return data;
 }
 
 module.exports = socialScraper;

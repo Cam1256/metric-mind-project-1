@@ -1,4 +1,8 @@
 import React, { useState } from "react";
+import LinkedInConnectButton from "./LinkedInConnectButton"; // 👈 Import correcto
+import FacebookConnectButton from "./FacebookConnectButton";
+
+
 
 const ScraperForm = () => {
   const [url, setUrl] = useState("");
@@ -33,6 +37,18 @@ const ScraperForm = () => {
   return (
     <div style={{ maxWidth: "700px", margin: "50px auto", fontFamily: "Inter, sans-serif" }}>
       <h2>Website Intelligence Scraper</h2>
+
+      {/* 🔗 Aquí agregamos el botón de LinkedIn */}
+      <div style={{ marginBottom: "20px" }}>
+        <LinkedInConnectButton />
+      </div>
+
+      <div style={{ marginBottom: "20px" }}>
+        <FacebookConnectButton />
+      </div>
+
+
+
 
       <form
         onSubmit={handleSubmit}
