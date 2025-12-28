@@ -1,32 +1,81 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
+
+
+
+// Auth routes
+const linkedinOAuth = require("./auth/linkedinOAuth");
+const facebookAuth = require("./auth/facebook");
+
+
+// Other services
 const scrapWebsite = require("./scraper/webScraper");
 
-const app = express();
+// Metrics
+const linkedinMetrics = require("./metrics/linkedinMetrics");
 
-// ✅ CORS — allow only production domains
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.set("trust proxy", 1);  
+
+/* =========================
+   GLOBAL MIDDLEWARES
+========================= */
+
+
+
+// CORS (NECESARIO antes de session)
 app.use(cors({
-  origin: ["https://metricmind.cloud", "https://www.metricmind.cloud"]
+  origin: [
+    "https://metricmind.cloud",
+    "https://www.metricmind.cloud"
+  ],
+  credentials: true,
 }));
+
+// SESSION (OBLIGATORIO para LinkedIn OAuth)
+app.use(cookieParser());
 
 app.use(express.json());
 
-const PORT = process.env.PORT || 5000;
+/* =========================
+   HEALTH CHECK
+========================= */
 
-// Health check
 app.get("/", (req, res) => {
   res.send("✅ Backend MetricMind running successfully");
 });
 
-// ✅ Web scraping endpoint
+/* =========================
+   AUTH ROUTES
+========================= */
+
+app.use("/auth", linkedinOAuth);
+app.use("/auth", facebookAuth);
+
+/* =========================
+   METRICS ROUTES
+========================= */
+
+app.use("/api", linkedinMetrics);
+
+/* =========================
+   SCRAPER ROUTES
+========================= */
+
 app.get("/scrap", async (req, res) => {
-  const url = req.query.url;
+  const { url } = req.query;
+
   if (!url) {
     return res.status(400).json({ error: "Missing 'url' parameter" });
   }
 
   try {
-    console.log(`🕸️ Received scraping request for: ${url}`);
+    console.log(`🕸️ Scraping request for: ${url}`);
     const result = await scrapWebsite(url);
     res.json(result);
   } catch (err) {
@@ -35,9 +84,10 @@ app.get("/scrap", async (req, res) => {
   }
 });
 
-// Start server
-// Start server
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+/* =========================
+   SERVER START
+========================= */
 
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 MetricMind backend running on port ${PORT}`);
+});
