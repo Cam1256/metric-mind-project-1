@@ -31,13 +31,7 @@ const LoginPage = () => {
             Login with Google
           </button>
 
-          <button onClick={() => socialLogin("Facebook")} style={{ padding: "10px 20px", margin: "10px", backgroundColor: "#1877f2", color: "#fff" }}>
-            Login with Facebook
-          </button>
-
-          <button onClick={() => socialLogin("LinkedIn")} style={{ padding: "10px 20px", margin: "10px", backgroundColor: "#0073b1", color: "#fff" }}>
-            Login with LinkedIn
-          </button>
+          
         </div>
       ) : (
         <div>
