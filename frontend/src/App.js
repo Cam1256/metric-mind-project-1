@@ -1,22 +1,27 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "react-oidc-context";
 
 import ScraperForm from "./components/ScraperForm";
 import LinkedInSuccess from "./components/LinkedInSuccess";
 import LoginPage from "./components/LoginPage";
 import AuthCallback from "./components/AuthCallback";
 
+const PrivateRoute = ({ children }) => {
+  const auth = useAuth();
+  if (!auth.isAuthenticated) return <Navigate to="/" replace />;
+  return children;
+};
+
 function App() {
   return (
     <Router>
-      <div className="App">
-        <Routes>
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/scraper" element={<ScraperForm />} />
-          <Route path="/linkedin/success" element={<LinkedInSuccess />} />
-        </Routes>
-      </div>
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/scraper" element={<PrivateRoute><ScraperForm /></PrivateRoute>} />
+        <Route path="/linkedin/success" element={<LinkedInSuccess />} />
+      </Routes>
     </Router>
   );
 }
