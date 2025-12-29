@@ -8,19 +8,14 @@ const AuthCallback = () => {
 
   useEffect(() => {
     if (auth.isAuthenticated) {
-      navigate("/scraper");
+      navigate("/scraper", { replace: true });
     }
   }, [auth.isAuthenticated, navigate]);
 
-  if (auth.isLoading) {
-    return <div style={{ padding: 40 }}>Finalizando autenticación...</div>;
-  }
+  if (auth.isLoading) return <div style={{ padding: 40 }}>Finalizando autenticación...</div>;
+  if (auth.error) return <div>Error autenticando: {auth.error.message}</div>;
 
-  if (auth.error) {
-    return <div>Error autenticando: {auth.error.message}</div>;
-  }
-
-  return <div>Procesando login...</div>;
+  return null; // No mostrar nada mientras procesa
 };
 
 export default AuthCallback;
