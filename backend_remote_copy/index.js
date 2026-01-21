@@ -1,4 +1,4 @@
-require("dotenv").config();
+
 
 const express = require("express");
 const cors = require("cors");
@@ -16,7 +16,6 @@ const scrapWebsite = require("./scraper/webScraper");
 
 // Metrics
 const linkedinMetrics = require("./metrics/linkedinMetrics");
-const linkedinCallback = require("./auth/linkedinCallback");
 
 
 const app = express();
@@ -61,7 +60,6 @@ app.get("/", (req, res) => {
    AUTH ROUTES
 ========================= */
 
-app.get("/auth/linkedin/callback", linkedinCallback);
 
 app.use("/auth", linkedinOAuth);
 app.use("/auth", facebookAuth);

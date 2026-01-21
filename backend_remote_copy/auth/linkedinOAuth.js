@@ -43,7 +43,10 @@ const oauthCookieConfig = {
   httpOnly: true,
   secure: true,
   sameSite: "none",
+  domain: ".metricmind.cloud", // 🔥 CLAVE
 };
+
+
 
 
 /* =======================
@@ -110,30 +113,25 @@ router.get("/linkedin/callback", async (req, res) => {
     const { access_token, expires_in } = tokenResponse.data;
 
     const meResponse = await axios.get(
-      "https://api.linkedin.com/v2/me",
+      "https://api.linkedin.com/v2/userinfo",
       { headers: { Authorization: `Bearer ${access_token}` } }
     );
 
     const member = meResponse.data;
 
-    const orgsResponse = await axios.get(
-      "https://api.linkedin.com/v2/organizationAcls",
-      { headers: { Authorization: `Bearer ${access_token}` } }
-    );
-
-    const organizations = orgsResponse.data.elements
-      .map(el => el.organization)
-      .filter(Boolean);
-
     await saveToken(userId, "linkedin", {
       access_token,
       expires_at: Date.now() + expires_in * 1000,
-      member_id: member.id,
-      organizations,
+      member_id: member.sub,
+      email: member.email,
+      name: member.name,
       scopes: LINKEDIN_SCOPES.split(" "),
     });
 
     console.log("✅ LinkedIn connected for user:", userId);
+
+    res.clearCookie("linkedin_oauth_state", { domain: ".metricmind.cloud" });
+    res.clearCookie("linkedin_oauth_user", { domain: ".metricmind.cloud" });
 
     return res.redirect("https://metricmind.cloud/linkedin/success");
   } catch (err) {

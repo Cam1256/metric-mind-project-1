@@ -1,12 +1,15 @@
-const APP_ID = "737217222339759";
-const REDIRECT_URI = "https://www.metricmind.cloud/auth/facebook/callback";
-
+import React from "react";
+import { useAuth } from "../context/AuthContext";
 
 export default function FacebookConnectButton() {
-  const loginUrl =
-    `https://www.facebook.com/v18.0/dialog/oauth?client_id=${APP_ID}` +
-    `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-    `&scope=public_profile,email,pages_show_list,pages_read_engagement,instagram_basic,instagram_manage_insights`;
+  const { user } = useAuth(); // usuario Cognito
+
+  if (!user?.sub) {
+    console.warn("No Cognito user found");
+    return null;
+  }
+
+  const loginUrl = `https://api.metricmind.cloud/auth/facebook/login?state=${user.sub}`;
 
   return (
     <a
@@ -18,6 +21,7 @@ export default function FacebookConnectButton() {
         borderRadius: "6px",
         textDecoration: "none",
         display: "inline-block",
+        fontWeight: "bold",
       }}
     >
       Connect Facebook

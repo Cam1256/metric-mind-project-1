@@ -1,78 +1,100 @@
-// auth/facebook.js
 const express = require("express");
 const axios = require("axios");
 const router = express.Router();
 
-const APP_ID = process.env.FACEBOOK_APP_ID;
-const APP_SECRET = process.env.FACEBOOK_APP_SECRET;
-const REDIRECT_URI = "https://www.metricmind.cloud/auth/facebook/callback";
+const { saveIntegration } = require("../config/dynamodb");
 
-// STEP 1 — Redirect user to Facebook Login
-router.get("/facebook", (req, res) => {
-  const loginURL =
-    `https://www.facebook.com/v24.0/dialog/oauth?` +
-    `client_id=${APP_ID}` +
-    `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-    `&scope=public_profile,email,pages_show_list,pages_read_engagement,instagram_basic,instagram_manage_insights` +
-    `&response_type=code`;
+console.log("ENV CHECK FACEBOOK_REDIRECT_URI =", process.env.FACEBOOK_REDIRECT_URI);
+console.log("ENV CHECK FRONTEND_URL =", process.env.FRONTEND_URL);
 
-  return res.redirect(loginURL);
+
+/**
+ * STEP 1
+ * Login con Facebook (SOLO identidad)
+ */
+router.get("/facebook/login", (req, res) => {
+  const { state } = req.query;
+
+  if (!state) {
+    return res.status(400).json({ error: "Missing state (cognitoSub)" });
+  }
+
+  const facebookAuthUrl =
+    "https://www.facebook.com/v19.0/dialog/oauth" +
+    `?client_id=${process.env.FACEBOOK_APP_ID}` +
+    `&redirect_uri=${encodeURIComponent(process.env.FACEBOOK_REDIRECT_URI)}` +
+    `&state=${state}` +
+    "&scope=email,public_profile" +
+    "&response_type=code";
+
+  res.redirect(facebookAuthUrl);
 });
 
-// STEP 2 — Facebook redirects back with "code"
+/**
+ * STEP 2
+ * Callback de Facebook
+ */
 router.get("/facebook/callback", async (req, res) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
+
+  if (!code || !state) {
+    return res.status(400).json({ error: "Missing code or state" });
+  }
+
+  const cognitoSub = state;
 
   try {
-    // Exchange code for access token
-    const tokenRes = await axios.get(
-      "https://graph.facebook.com/v24.0/oauth/access_token",
+    // 1️⃣ Intercambiar code por access_token
+    const tokenResponse = await axios.get(
+      "https://graph.facebook.com/v19.0/oauth/access_token",
       {
         params: {
-          client_id: APP_ID,
-          client_secret: APP_SECRET,
-          redirect_uri: REDIRECT_URI,
+          client_id: process.env.FACEBOOK_APP_ID,
+          client_secret: process.env.FACEBOOK_APP_SECRET,
+          redirect_uri: process.env.FACEBOOK_REDIRECT_URI,
           code,
         },
       }
     );
 
-    const access_token = tokenRes.data.access_token;
+    const accessToken = tokenResponse.data.access_token;
 
-    // Get user profile
-    const userRes = await axios.get(
-      "https://graph.facebook.com/me?fields=id,name,email",
-      {
-        headers: { Authorization: `Bearer ${access_token}` },
-      }
-    );
-
-    // If you want to use long-lived token
-    const longTokenRes = await axios.get(
-      "https://graph.facebook.com/v24.0/oauth/access_token",
+    // 2️⃣ Obtener datos básicos del usuario
+    const profileResponse = await axios.get(
+      "https://graph.facebook.com/v19.0/me",
       {
         params: {
-          grant_type: "fb_exchange_token",
-          client_id: APP_ID,
-          client_secret: APP_SECRET,
-          fb_exchange_token: access_token,
+          fields: "id,name,email",
+          access_token: accessToken,
         },
       }
     );
 
-    const long_token = longTokenRes.data.access_token;
+    // 3️⃣ Guardar integración BÁSICA
+    await saveIntegration({
+      pk: `USER#${cognitoSub}`,
+      sk: "INTEGRATION#FACEBOOK",
+      data: {
+        facebook: {
+          connected: true,
+          userId: profileResponse.data.id,
+          name: profileResponse.data.name,
+          email: profileResponse.data.email || null,
+          accessToken, // token corto (login)
+        },
+      },
+    });
 
-    // RETURN TO FRONTEND WITH TOKEN
-    return res.redirect(
-      `https://www.metricmind.cloud/?facebook_success=1` +
-      `&access_token=${long_token}` +
-      `&name=${encodeURIComponent(userRes.data.name)}` +
-      `&id=${userRes.data.id}`
+    // 4️⃣ Redirigir al frontend
+    res.redirect(
+      `${process.env.FRONTEND_URL}/integrations?facebook=connected`
     );
+  } catch (error) {
+    console.error("Facebook OAuth error:", error.response?.data || error);
 
-  } catch (err) {
-    console.error("❌ Facebook OAuth Error", err.response?.data || err.message);
-    return res.redirect("https://www.metricmind.cloud/?facebook_error=1");
+    res.redirect(
+      `${process.env.FRONTEND_URL}/integrations?facebook=error`
+    );
   }
 });
 
