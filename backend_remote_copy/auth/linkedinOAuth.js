@@ -26,11 +26,18 @@ const REDIRECT_URI = process.env.LINKEDIN_REDIRECT_URI;
 /* =======================
    SCOPES (LinkedIn real)
 ======================= */
+
 const LINKEDIN_SCOPES = [
   "openid",
   "profile",
   "email"
+ /**
+  // ORGANIZATIONS
+  "r_organization_social",
+  "r_organization_followers",
+  "rw_organization_admin" */
 ].join(" ");
+
 
 
 console.log("🔧 LinkedIn OAuth loaded:", {
@@ -111,6 +118,8 @@ router.get("/linkedin/callback", async (req, res) => {
     );
 
     const { access_token, expires_in } = tokenResponse.data;
+    console.log("🔑 LINKEDIN ACCESS TOKEN:", access_token);
+    console.log("⏱️ EXPIRES IN:", expires_in);
 
     const meResponse = await axios.get(
       "https://api.linkedin.com/v2/userinfo",
@@ -151,6 +160,49 @@ router.get("/linkedin/status", (req, res) => {
   const token = getToken(userId, "linkedin");
   res.json({ connected: !!token });
 });
+
+/* =======================
+   LINKEDIN ORGANIZATIONS
+======================= */
+router.get("/linkedin/organizations", async (req, res) => {
+  try {
+    const userId = req.user?.id || "dev_user";
+    const tokenData = getToken(userId, "linkedin");
+
+    if (!tokenData) {
+      return res.status(401).json({ connected: false });
+    }
+
+    const { access_token } = tokenData;
+
+
+    const orgRes = await axios.get(
+      "https://api.linkedin.com/v2/organizationAcls",
+      {
+        params: { q: "roleAssignee" },
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+        },
+      }
+    );
+
+    const organizations = orgRes.data.elements || [];
+
+    return res.json({
+      connected: true,
+      hasOrganizations: organizations.length > 0,
+      organizations,
+    });
+  } catch (err) {
+    console.error(
+      "❌ LinkedIn organizations error:",
+      err.response?.data || err.message
+    );
+    return res.status(500).json({ error: "Failed to fetch organizations" });
+  }
+});
+
+
 
 // Disconnect LinkedIn
 router.delete("/linkedin/disconnect", (req, res) => {

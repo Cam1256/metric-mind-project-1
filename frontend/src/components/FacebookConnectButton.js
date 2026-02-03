@@ -1,8 +1,9 @@
 import React from "react";
-import { useAuth } from "../context/AuthContext";
+/*import { useAuth } from "../context/AuthContext";*/
 
 export default function FacebookConnectButton() {
-  const { user } = useAuth(); // usuario Cognito
+  const user = { sub: "dummy-user-id" };
+  /*const { user } = useAuth(); // usuario Cognito*/
 
   if (!user?.sub) {
     console.warn("No Cognito user found");
