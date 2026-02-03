@@ -15,8 +15,12 @@ const router = express.Router();
 ======================= */
 router.get("/linkedin/metrics/organization", async (req, res) => {
   try {
-    // ⚠️ Luego vendrá de JWT / sesión
-    const userId = "metricmind";
+    const userId = req.user?.id || "dev_user";
+    const { organizationUrn } = req.query;
+
+    if (!organizationUrn) {
+      return res.status(400).json({ error: "organizationUrn is required" });
+    }
 
     const tokenData = getToken(userId, "linkedin");
     if (!tokenData) {
@@ -25,16 +29,10 @@ router.get("/linkedin/metrics/organization", async (req, res) => {
 
     const { access_token, organizations } = tokenData;
 
-    if (!organizations || organizations.length === 0) {
-      return res.status(400).json({ error: "No LinkedIn organizations found" });
+    if (!organizations.includes(organizationUrn)) {
+      return res.status(403).json({ error: "Organization not authorized" });
     }
 
-    // 👉 Por ahora usamos la primera org
-    const organizationUrn = organizations[0];
-
-    /* -----------------------
-       Followers count
-    ------------------------ */
     const followersRes = await axios.get(
       "https://api.linkedin.com/v2/organizationalEntityFollowerStatistics",
       {
@@ -43,8 +41,7 @@ router.get("/linkedin/metrics/organization", async (req, res) => {
           organizationalEntity: organizationUrn,
         },
         headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
+          Authorization: `Bearer ${access_token}` },
       }
     );
 
@@ -67,3 +64,4 @@ router.get("/linkedin/metrics/organization", async (req, res) => {
 });
 
 module.exports = router;
+

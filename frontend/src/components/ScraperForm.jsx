@@ -37,7 +37,8 @@ const ScraperForm = () => {
 
   return (
     <div style={{ maxWidth: "700px", margin: "50px auto", fontFamily: "Inter, sans-serif" }}>
-      <h2>Website Intelligence Scraper</h2>
+      <h2>MetricMind – Website Intelligence (v0)</h2>
+      <h3>Early signal collection via authorized platform connections</h3>
       <LogoutButton />
       {/* 🔗 Aquí agregamos el botón de LinkedIn */}
       <div style={{ marginBottom: "20px" }}>

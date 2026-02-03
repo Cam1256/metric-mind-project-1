@@ -4,6 +4,13 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 
+// Metrics
+const linkedinMetrics = require("./metrics/linkedinMetrics");
+
+// 👇 AÑADE ESTO
+const linkedinOrganizations = require("./api/linkedinOrganizations");
+
+
 
 
 // Auth routes
@@ -15,7 +22,7 @@ const facebookAuth = require("./auth/facebook");
 const scrapWebsite = require("./scraper/webScraper");
 
 // Metrics
-const linkedinMetrics = require("./metrics/linkedinMetrics");
+
 
 
 const app = express();
@@ -42,6 +49,13 @@ app.use(cors({
 app.use(cookieParser());
 
 
+/* =========================
+   METRICS ROUTES
+========================= */
+
+app.use("/api", linkedinMetrics);
+// 👇 ORGANIZACIONES LINKEDIN
+app.use("/api", linkedinOrganizations);
 
 
 app.use(express.json());
