@@ -19,8 +19,16 @@ const ScraperForm = () => {
 
     try {
       const response = await fetch(
-        `https://api.metricmind.cloud/scrap?url=${encodeURIComponent(url)}`
+        "https://api.metricmind.cloud/api/analyze-website",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ url }),
+        }
       );
+
       const data = await response.json();
 
       if (!response.ok || data.error) {
@@ -88,42 +96,90 @@ const ScraperForm = () => {
       {error && <p style={{ color: "red" }}>{error}</p>}
 
       {result && (
-        <div style={{ textAlign: "left" }}>
-          <h3>Scraping Results</h3>
-          <p><strong>Title:</strong> {result.title || "Not available"}</p>
-          <p><strong>Description:</strong> {result.description || "Not available"}</p>
+        <div style={{ textAlign: "left", marginTop: "30px" }}>
+          <h3>Website Intelligence Snapshot</h3>
 
-          {result.socialLinks?.length > 0 && (
-            <div>
-              <h4>Social Media Links:</h4>
+          <p>
+            <strong>Website:</strong>{" "}
+            {result.entity?.resolvedDomain || result.entity?.input}
+          </p>
+
+          <p>
+            <strong>Observability:</strong>{" "}
+            {result.snapshot?.observable?.toUpperCase() || "UNKNOWN"}
+          </p>
+
+          <p>
+            <strong>Blocked:</strong>{" "}
+            {result.snapshot?.blocked ? "Yes" : "No"}
+          </p>
+
+          <p>
+            <strong>Confidence:</strong>{" "}
+            {result.meta?.confidence || "unknown"}
+          </p>
+
+          <hr />
+
+          <h4>Detected Signals</h4>
+          <ul>
+            {result.signals?.map((signal, i) => (
+              <li key={i}>
+                {signal.value ? "✅" : "❌"} {signal.type} (
+                {signal.source})
+              </li>
+            ))}
+          </ul>
+
+          {result.analysis?.warnings?.length > 0 && (
+            <>
+              <h4>Warnings</h4>
               <ul>
-                {result.socialLinks.map((link, i) => (
-                  <li key={i}>
-                    <a href={link} target="_blank" rel="noopener noreferrer">
-                      {link}
-                    </a>
-                  </li>
+                {result.analysis.warnings.map((w, i) => (
+                  <li key={i}>⚠️ {w.message}</li>
                 ))}
               </ul>
-            </div>
+            </>
           )}
 
-          {result.socialData && Object.keys(result.socialData).length > 0 && (
-            <div>
-              <h4>Social Media Data:</h4>
-              <ul>
-                {Object.entries(result.socialData).map(([platform, data], i) => (
-                  <li key={i}>
-                    <strong>{platform}</strong>:{" "}
-                    {data.name || "No name"} —{" "}
-                    {data.followers ? `${data.followers} followers` : "Followers not available"}
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {result.raw && (
+            <>
+              <h4>Public Evidence</h4>
+              <p>
+                <strong>Title:</strong>{" "}
+                {result.raw.title || "Not available"}
+              </p>
+
+              {result.raw.socialLinks?.length > 0 && (
+                <>
+                  <p>
+                    <strong>Social links detected:</strong>
+                  </p>
+                  <ul>
+                    {result.raw.socialLinks.map((link, i) => (
+                      <li key={i}>
+                        <a
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {link}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </>
           )}
+
+          <p style={{ fontSize: "12px", color: "#666", marginTop: "15px" }}>
+            Signals derived from publicly observable sources only.
+          </p>
         </div>
       )}
+
+  
     </div>
   );
 };
