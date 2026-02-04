@@ -1,0 +1,31 @@
+const webScraper = require("../scraper/webScraper");
+const { buildSnapshot } = require("../domain/snapshots/buildSnapshot");
+
+async function analyzeWebsite(req, res) {
+  const { url } = req.body;
+
+  if (!url) {
+    return res.status(400).json({ error: "URL is required" });
+  }
+
+  try {
+    const scrapingResult = await webScraper(url);
+
+    const snapshot = buildSnapshot({
+      url,
+      scrapingResult
+    });
+
+    return res.json(snapshot);
+
+  } catch (error) {
+    console.error("Analyze website failed:", error);
+
+    return res.status(500).json({
+      error: "Failed to analyze website",
+      message: error.message
+    });
+  }
+}
+
+module.exports = analyzeWebsite;
