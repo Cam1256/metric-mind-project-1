@@ -10,6 +10,9 @@ const linkedinMetrics = require("./metrics/linkedinMetrics");
 // 👇 AÑADE ESTO
 const linkedinOrganizations = require("./api/linkedinOrganizations");
 
+const analyzeWebsite = require("./api/analyzeWebsite");
+
+
 
 
 
@@ -48,6 +51,8 @@ app.use(cors({
 // SESSION (OBLIGATORIO para LinkedIn OAuth)
 app.use(cookieParser());
 
+app.use(express.json());
+
 
 /* =========================
    METRICS ROUTES
@@ -56,9 +61,10 @@ app.use(cookieParser());
 app.use("/api", linkedinMetrics);
 // 👇 ORGANIZACIONES LINKEDIN
 app.use("/api", linkedinOrganizations);
+app.post("/api/analyze-website", analyzeWebsite);
 
 
-app.use(express.json());
+
 
 /* =========================
    HEALTH CHECK
@@ -82,7 +88,6 @@ app.use("/auth", facebookAuth);
    METRICS ROUTES
 ========================= */
 
-app.use("/api", linkedinMetrics);
 
 /* =========================
    SCRAPER ROUTES
@@ -112,3 +117,7 @@ app.get("/scrap", async (req, res) => {
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 MetricMind backend running on port ${PORT}`);
 });
+
+
+
+module.exports = app;
