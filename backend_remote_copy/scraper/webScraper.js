@@ -59,16 +59,14 @@ async function webScraper(url) {
 
     browser = await puppeteer.launch({
       headless: true,
-      executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--no-zygote",
-        "--single-process"
+        "--disable-gpu"
       ],
     });
+
 
     const page = await browser.newPage();
 
@@ -91,26 +89,43 @@ async function webScraper(url) {
     const bodyText = await page.evaluate(() => document.body?.innerText || "");
     const htmlSize = bodyText.replace(/\s+/g, "").length;
 
-    const MIN_CONTENT_THRESHOLD = 200;
-    const isObservable = htmlSize >= MIN_CONTENT_THRESHOLD;
+    let observable = "none";
+    let observableScore = 0;
+
+    if (htmlSize >= 50) {
+      observable = "low";
+      observableScore = 0.25;
+    }
+
+    if (htmlSize >= 200) {
+      observable = "medium";
+      observableScore = 0.6;
+    }
+
+    if (htmlSize >= 800) {
+      observable = "high";
+      observableScore = 1;
+    }
+
 
     // Detectar bloqueo probable
-    if (!isObservable && htmlSize < 50) {
+    if (observable === "none" && htmlSize < 50) {
       blocked = true;
       blockReason = SCRAPE_ERRORS.ANTI_BOT;
     }
+
 
     let title = "";
     let description = "";
     let ogImage = "";
 
-    if (isObservable) {
+    if (observable !== "none") {
       title = await page.title();
       description = await page.$eval("meta[name='description']", el => el.content).catch(() => "");
       ogImage = await page.$eval("meta[property='og:image']", el => el.content).catch(() => "");
     }
 
-    const allLinks = isObservable
+    const allLinks = observable !== "none"
       ? await page.$$eval("a", links => links.map(l => l.href.trim()).filter(Boolean))
       : [];
 
@@ -146,7 +161,8 @@ async function webScraper(url) {
 
     return {
       url,
-      observable: isObservable,
+      observable,        // "none" | "low" | "medium" | "high"
+      observableScore,   // 0 → 1
       blocked,
       blockReason,
       title,
@@ -155,6 +171,7 @@ async function webScraper(url) {
       socialLinks,
       socialData,
     };
+
 
   } catch (error) {
     if (browser) await browser.close();
@@ -168,12 +185,15 @@ async function webScraper(url) {
 
     return {
       url,
-      observable: false,
+      observable: "none",
+      observableScore: 0,
       blocked: errorType === SCRAPE_ERRORS.ANTI_BOT,
       blockReason: errorType === SCRAPE_ERRORS.ANTI_BOT ? errorType : null,
       error: errorType,
       message: error.message
     };
+
+
   }
 }
 
