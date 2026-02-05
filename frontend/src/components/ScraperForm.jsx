@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import LinkedInConnectButton from "./LinkedInConnectButton"; // 👈 Import correcto
 import FacebookConnectButton from "./FacebookConnectButton";
 import LogoutButton from "./LogoutButton";
+import LinkedInFlowV0 from "./linkedin/LinkedInFlowV0";
+
 
 
 
@@ -10,6 +12,8 @@ const ScraperForm = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [linkedinConnected, setLinkedinConnected] = useState(false);
+ 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,8 +54,15 @@ const ScraperForm = () => {
       <LogoutButton />
       {/* 🔗 Aquí agregamos el botón de LinkedIn */}
       <div style={{ marginBottom: "20px" }}>
-        <LinkedInConnectButton />
+        <LinkedInConnectButton
+          onConnect={() => {
+            setLinkedinConnected(true);
+          }}
+        />
+
       </div>
+      {linkedinConnected && <LinkedInFlowV0 />}
+
 
       <div style={{ marginBottom: "20px" }}>
         <FacebookConnectButton />
@@ -97,7 +108,7 @@ const ScraperForm = () => {
 
       {result && (
         <div style={{ textAlign: "left", marginTop: "30px" }}>
-          <h3>Website Intelligence Snapshot</h3>
+          <h3>Digital Presence Intelligence Snapshot</h3>
 
           <p>
             <strong>Website:</strong>{" "}
@@ -121,13 +132,15 @@ const ScraperForm = () => {
 
           <hr />
 
-          <h4>Detected Signals</h4>
+          <h4>Observed Public Signals</h4>
           <ul>
             {result.signals?.map((signal, i) => (
-              <li key={i}>
-                {signal.value ? "✅" : "❌"} {signal.type} (
-                {signal.source})
-              </li>
+              <li>
+              {signal.value ? "✅" : "❌"} {signal.type} (
+              {signal.source === "scraper:web" ? "public_web" : signal.source}
+              )
+            </li>
+
             ))}
           </ul>
 

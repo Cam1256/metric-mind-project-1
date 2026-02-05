@@ -19,7 +19,8 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/scraper" element={<PrivateRoute><ScraperForm /></PrivateRoute>} />
+        <Route path="/intelligence" element={<PrivateRoute><ScraperForm /></PrivateRoute>} />
+        <Route path="/scraper" element={<Navigate to="/intelligence" />} />
         <Route path="/linkedin/success" element={<LinkedInSuccess />} />
       </Routes>
     </Router>
