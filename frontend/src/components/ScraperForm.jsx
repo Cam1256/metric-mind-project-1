@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useAuth } from "react-oidc-context"; 
 import LinkedInConnectButton from "./LinkedInConnectButton"; // 👈 Import correcto
 import FacebookConnectButton from "./FacebookConnectButton";
 import LogoutButton from "./LogoutButton";
@@ -8,6 +9,7 @@ import LinkedInFlowV0 from "./linkedin/LinkedInFlowV0";
 
 
 const ScraperForm = () => {
+  const auth = useAuth();
   const [url, setUrl] = useState("");
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
@@ -21,6 +23,21 @@ const ScraperForm = () => {
     setResult(null);
     setLoading(true);
 
+    if (!auth.isAuthenticated) {
+      setError("You must be logged in.");
+      setLoading(false);
+      return;
+    }
+
+    const token = auth.user?.id_token;
+
+
+    if (!token) {
+      setError("Authentication token missing.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(
         "https://api.metricmind.cloud/api/analyze-website",
@@ -28,6 +45,7 @@ const ScraperForm = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ url }),
         }
@@ -53,15 +71,42 @@ const ScraperForm = () => {
       <h3>Early signal collection via authorized platform connections</h3>
       <LogoutButton />
       {/* 🔗 Aquí agregamos el botón de LinkedIn */}
-      <div style={{ marginBottom: "20px" }}>
-        <LinkedInConnectButton
-          onConnect={() => {
-            setLinkedinConnected(true);
+      {result && result.entity && (
+        <div
+          style={{
+            marginTop: "30px",
+            paddingTop: "20px",
+            borderTop: "1px solid #eee",
           }}
-        />
+        >
+          <h3>Platform enrichment</h3>
 
-      </div>
-      {linkedinConnected && <LinkedInFlowV0 />}
+          <p style={{ fontSize: "14px", color: "#555" }}>
+            Enrich digital signals for{" "}
+            <strong>
+              {result.entity.resolvedDomain || result.entity.input}
+            </strong>{" "}
+            using authorized platform connections.
+          </p>
+
+          {!linkedinConnected && (
+            <LinkedInConnectButton
+              onConnect={() => setLinkedinConnected(true)}
+            />
+          )}
+
+          {result && linkedinConnected && (
+            <LinkedInFlowV0
+              key={result.entity?.resolvedDomain}
+              entity={result.entity?.resolvedDomain}
+            />
+          )}
+
+        </div>
+      )}
+
+      
+
 
 
       <div style={{ marginBottom: "20px" }}>
@@ -90,7 +135,7 @@ const ScraperForm = () => {
         />
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !auth.isAuthenticated}
           style={{
             padding: "10px 16px",
             backgroundColor: "#0078ff",
@@ -135,7 +180,7 @@ const ScraperForm = () => {
           <h4>Observed Public Signals</h4>
           <ul>
             {result.signals?.map((signal, i) => (
-              <li>
+              <li key={i}>
               {signal.value ? "✅" : "❌"} {signal.type} (
               {signal.source === "scraper:web" ? "public_web" : signal.source}
               )
