@@ -1,5 +1,6 @@
 const webScraper = require("../scraper/webScraper");
 const { buildSnapshot } = require("../domain/snapshots/buildSnapshot");
+const pool = require("../db");
 
 async function analyzeWebsite(req, res) {
   const { url } = req.body;
@@ -9,6 +10,10 @@ async function analyzeWebsite(req, res) {
   }
 
   try {
+
+    const userId = req.dbUser.id;
+
+    console.log("Analyze request from user:", userId);
     const scrapingResult = await webScraper(url);
 
     const snapshot = buildSnapshot({

@@ -1,8 +1,13 @@
+require("dotenv").config();
+
+
 
 
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const syncUser = require("./middleware/syncUser");
+
 
 // Metrics
 const linkedinMetrics = require("./metrics/linkedinMetrics");
@@ -11,6 +16,7 @@ const linkedinMetrics = require("./metrics/linkedinMetrics");
 const linkedinOrganizations = require("./api/linkedinOrganizations");
 
 const analyzeWebsite = require("./api/analyzeWebsite");
+const verifyJwt = require("./middleware/verifyJwt");
 
 
 
@@ -30,6 +36,7 @@ const scrapWebsite = require("./scraper/webScraper");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
 
 app.set("trust proxy", 1);  
 
@@ -58,10 +65,16 @@ app.use(express.json());
    METRICS ROUTES
 ========================= */
 
+app.use("/api", verifyJwt, syncUser);
+
+app.post("/api/analyze-website", analyzeWebsite);
+
 app.use("/api", linkedinMetrics);
 // 👇 ORGANIZACIONES LINKEDIN
 app.use("/api", linkedinOrganizations);
-app.post("/api/analyze-website", analyzeWebsite);
+
+
+
 
 
 
