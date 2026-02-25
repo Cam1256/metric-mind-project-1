@@ -4,6 +4,7 @@ import LinkedInConnectButton from "./LinkedInConnectButton"; // 👈 Import corr
 import FacebookConnectButton from "./FacebookConnectButton";
 import LogoutButton from "./LogoutButton";
 import LinkedInFlowV0 from "./linkedin/LinkedInFlowV0";
+import { useEffect } from "react";
 
 
 
@@ -65,6 +66,29 @@ const ScraperForm = () => {
     }
   };
 
+  useEffect(() => {
+  const checkLinkedInStatus = async () => {
+    try {
+      const res = await fetch(
+        "https://api.metricmind.cloud/linkedin/status",
+        {
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json();
+
+      if (data.connected) {
+        setLinkedinConnected(true);
+      }
+    } catch (err) {
+      console.error("Failed to check LinkedIn status");
+    }
+  };
+
+  checkLinkedInStatus();
+}, []);
+
   return (
     <div style={{ maxWidth: "700px", margin: "50px auto", fontFamily: "Inter, sans-serif" }}>
       <h2>MetricMind – Website Intelligence (v0)</h2>
@@ -89,11 +113,7 @@ const ScraperForm = () => {
             using authorized platform connections.
           </p>
 
-          {!linkedinConnected && (
-            <LinkedInConnectButton
-              onConnect={() => setLinkedinConnected(true)}
-            />
-          )}
+          {!linkedinConnected && <LinkedInConnectButton />}
 
           {result && linkedinConnected && (
             <LinkedInFlowV0
