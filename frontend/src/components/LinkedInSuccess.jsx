@@ -1,36 +1,59 @@
 import React, { useEffect, useState } from "react";
 
 const LinkedInSuccess = () => {
-  
+
   const [profile, setProfile] = useState(null);
+  const [organizations, setOrganizations] = useState([]);
+  const [orgError, setOrgError] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("https://api.metricmind.cloud/auth/linkedin/profile", {
-      credentials: "include"
-    })
-      .then(res => {
-        if (!res.ok) {
-          throw new Error("Failed to load profile");
+
+    const loadData = async () => {
+      try {
+        // PROFILE
+        const profileRes = await fetch(
+          "https://api.metricmind.cloud/auth/linkedin/profile",
+          { credentials: "include" }
+        );
+
+        const profileData = await profileRes.json();
+        setProfile(profileData);
+
+        // ORGANIZATIONS (optional)
+        try {
+          const orgRes = await fetch(
+            "https://api.metricmind.cloud/auth/linkedin/organizations",
+            { credentials: "include" }
+          );
+
+          const orgData = await orgRes.json();
+
+          if (orgData.organizations) {
+            setOrganizations(orgData.organizations);
+          }
+
+        } catch {
+          setOrgError(true);
         }
-        return res.json();
-      })
-      .then(data => {
-        console.log("PROFILE RESPONSE:", data);
-        setProfile(data);
+
+      } catch (err) {
+        console.error("LinkedIn load failed:", err);
+      } finally {
         setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setProfile(null);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+      }
+    };
+
+    loadData();
+
   }, []);
 
   if (loading) {
-    return <h2 style={{ textAlign: "center", marginTop: "50px" }}>Loading LinkedIn data...</h2>;
+    return (
+      <h2 style={{ textAlign: "center", marginTop: "50px" }}>
+        Loading LinkedIn data...
+      </h2>
+    );
   }
 
   return (
@@ -41,6 +64,7 @@ const LinkedInSuccess = () => {
         <div style={{ marginTop: "30px" }}>
           <h2>{profile.name}</h2>
           <p>{profile.email}</p>
+
           {profile.picture && (
             <img
               src={profile.picture}
@@ -50,6 +74,29 @@ const LinkedInSuccess = () => {
           )}
         </div>
       )}
+
+      <hr style={{ margin: "30px auto", width: "400px" }} />
+
+      <h3>🏢 Organization Access</h3>
+
+      {organizations.length > 0 ? (
+        <ul style={{ listStyle: "none", padding: 0 }}>
+          {organizations.map((org, i) => (
+            <li key={i}>
+              ✔ {org.organization || "LinkedIn Organization"}
+            </li>
+          ))}
+        </ul>
+      ) : orgError ? (
+        <p>⚠ Organization data unavailable (API review pending)</p>
+      ) : (
+        <p>Organization access pending LinkedIn approval.</p>
+      )}
+
+      <p style={{ marginTop: "20px" }}>
+        <strong>Connected via OAuth 2.0</strong>
+      </p>
+      <p>Scopes granted: openid, profile, email</p>
 
       <a
         href="/"
@@ -65,9 +112,6 @@ const LinkedInSuccess = () => {
       >
         Go Back to Dashboard
       </a>
-
-      <p><strong>Connected via OAuth 2.0</strong></p>
-      <p>Scopes granted: openid, profile, email</p>
     </div>
   );
 };
