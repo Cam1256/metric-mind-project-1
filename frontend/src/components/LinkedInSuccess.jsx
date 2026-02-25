@@ -1,22 +1,55 @@
-import React, { useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 
 const LinkedInSuccess = () => {
-  const [params] = useSearchParams();
+  
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = params.get("token");
+    fetch("https://api.metricmind.cloud/auth/linkedin/profile", {
+      credentials: "include"
+    })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error("Failed to load profile");
+        }
+        return res.json();
+      })
+      .then(data => {
+        console.log("PROFILE RESPONSE:", data);
+        setProfile(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setProfile(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
-    if (token) {
-      localStorage.setItem("linkedin_access_token", token);
-      console.log("Token saved:", token);
-    }
-  }, [params]);
+  if (loading) {
+    return <h2 style={{ textAlign: "center", marginTop: "50px" }}>Loading LinkedIn data...</h2>;
+  }
 
   return (
     <div style={{ padding: "60px", textAlign: "center" }}>
       <h1>🎉 LinkedIn Connected Successfully</h1>
-      <p>Your LinkedIn account is now connected to MetricMind!</p>
+
+      {profile && (
+        <div style={{ marginTop: "30px" }}>
+          <h2>{profile.name}</h2>
+          <p>{profile.email}</p>
+          {profile.picture && (
+            <img
+              src={profile.picture}
+              alt="Profile"
+              style={{ width: "120px", borderRadius: "50%" }}
+            />
+          )}
+        </div>
+      )}
 
       <a
         href="/"
@@ -32,6 +65,9 @@ const LinkedInSuccess = () => {
       >
         Go Back to Dashboard
       </a>
+
+      <p><strong>Connected via OAuth 2.0</strong></p>
+      <p>Scopes granted: openid, profile, email</p>
     </div>
   );
 };

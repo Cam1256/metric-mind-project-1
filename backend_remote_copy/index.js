@@ -6,28 +6,16 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+
+const verifyJwt = require("./middleware/verifyJwt");
 const syncUser = require("./middleware/syncUser");
 
-
-// Metrics
+const linkedinRoutes = require("./api/linkedin/me");
 const linkedinMetrics = require("./metrics/linkedinMetrics");
-
-// 👇 AÑADE ESTO
 const linkedinOrganizations = require("./api/linkedinOrganizations");
-
 const analyzeWebsite = require("./api/analyzeWebsite");
-const verifyJwt = require("./middleware/verifyJwt");
-
-
-
-
-
-// Auth routes
 const linkedinOAuth = require("./auth/linkedinOAuth");
 const facebookAuth = require("./auth/facebook");
-
-
-// Other services
 const scrapWebsite = require("./scraper/webScraper");
 
 // Metrics
@@ -61,21 +49,19 @@ app.use(cookieParser());
 app.use(express.json());
 
 
+app.use("/auth", linkedinOAuth);
+app.use("/auth", facebookAuth);
+
 /* =========================
    METRICS ROUTES
 ========================= */
 
-app.use("/api", verifyJwt, syncUser);
+
+app.use("/api/linkedin", linkedinRoutes);
+app.use("/api", verifyJwt, syncUser, linkedinMetrics);
+app.use("/api", verifyJwt, syncUser, linkedinOrganizations);
 
 app.post("/api/analyze-website", analyzeWebsite);
-
-app.use("/api", linkedinMetrics);
-// 👇 ORGANIZACIONES LINKEDIN
-app.use("/api", linkedinOrganizations);
-
-
-
-
 
 
 
@@ -94,8 +80,7 @@ app.get("/", (req, res) => {
 ========================= */
 
 
-app.use("/auth", linkedinOAuth);
-app.use("/auth", facebookAuth);
+
 
 /* =========================
    METRICS ROUTES

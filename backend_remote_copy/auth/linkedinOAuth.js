@@ -140,7 +140,7 @@ router.get("/linkedin/callback", async (req, res) => {
     console.log("✅ LinkedIn connected for user:", userId);
 
     res.clearCookie("linkedin_oauth_state", { domain: ".metricmind.cloud" });
-    res.clearCookie("linkedin_oauth_user", { domain: ".metricmind.cloud" });
+    //res.clearCookie("linkedin_oauth_user", { domain: ".metricmind.cloud" });
 
     return res.redirect("https://metricmind.cloud/linkedin/success");
   } catch (err) {
@@ -156,7 +156,7 @@ router.get("/linkedin/callback", async (req, res) => {
 
 // Check connection status
 router.get("/linkedin/status", (req, res) => {
-  const userId = req.user?.id || "dev_user";
+  const userId = req.cookies.linkedin_oauth_user || "dev_user";
   const token = getToken(userId, "linkedin");
   res.json({ connected: !!token });
 });
@@ -209,6 +209,44 @@ router.delete("/linkedin/disconnect", (req, res) => {
   const userId = req.user?.id || "dev_user";
   removeToken(userId, "linkedin");
   res.json({ message: "LinkedIn disconnected" });
+});
+
+/* =======================
+   LINKEDIN PROFILE
+======================= */
+router.get("/linkedin/profile", async (req, res) => {
+  try {
+    const userId = req.cookies.linkedin_oauth_user || "dev_user";
+    const tokenData = getToken(userId, "linkedin");
+
+    if (!tokenData) {
+      return res.status(401).json({
+        connected: false,
+        error: "No LinkedIn token"
+      });
+    }
+
+    const response = await axios.get(
+      "https://api.linkedin.com/v2/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+        },
+      }
+    );
+
+    return res.json({
+      connected: true,
+      name: response.data.name,
+      email: response.data.email,
+      picture: response.data.picture,
+      sub: response.data.sub,
+    });
+
+  } catch (err) {
+    console.error("❌ LinkedIn profile error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch profile" });
+  }
 });
 
 module.exports = router;
