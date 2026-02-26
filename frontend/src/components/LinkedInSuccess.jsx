@@ -3,39 +3,30 @@ import React, { useEffect, useState } from "react";
 const LinkedInSuccess = () => {
 
   const [profile, setProfile] = useState(null);
-  const [organizations, setOrganizations] = useState([]);
-  const [orgError, setOrgError] = useState(false);
+  
   const [loading, setLoading] = useState(true);
+  const [analysis, setAnalysis] = useState(null);
 
   useEffect(() => {
 
     const loadData = async () => {
       try {
-        // PROFILE
-        const profileRes = await fetch(
-          "https://api.metricmind.cloud/auth/linkedin/profile",
+
+        const res = await fetch(
+          "https://api.metricmind.cloud/auth/linkedin/context",
           { credentials: "include" }
         );
 
-        const profileData = await profileRes.json();
-        setProfile(profileData);
-
-        // ORGANIZATIONS (optional)
-        try {
-          const orgRes = await fetch(
-            "https://api.metricmind.cloud/auth/linkedin/organizations",
-            { credentials: "include" }
-          );
-
-          const orgData = await orgRes.json();
-
-          if (orgData.organizations) {
-            setOrganizations(orgData.organizations);
-          }
-
-        } catch {
-          setOrgError(true);
+        if (!res.ok) {
+          throw new Error("Failed to load context");
         }
+
+        const data = await res.json();
+
+        console.log("FULL CONTEXT:", data);
+
+        setProfile(data.profile || null);
+        setAnalysis(data.analysis || null);
 
       } catch (err) {
         console.error("LinkedIn load failed:", err);
@@ -75,23 +66,28 @@ const LinkedInSuccess = () => {
         </div>
       )}
 
+      <div style={{ marginTop: "40px", textAlign: "left", maxWidth: "500px", margin: "40px auto" }}>
+        <h3>🧠 MetricMind Signal Snapshot</h3>
+
+        {analysis ? (
+          <>
+            <p><strong>Website:</strong> {analysis.entity?.resolvedDomain}</p>
+            <p><strong>Observability:</strong> {analysis.snapshot?.observable}</p>
+            <p><strong>Confidence:</strong> {analysis.meta?.confidence}</p>
+          </>
+        ) : (
+          <p>Waiting for analysis context...</p>
+        )}
+      </div>
+
       <hr style={{ margin: "30px auto", width: "400px" }} />
 
       <h3>🏢 Organization Access</h3>
 
-      {organizations.length > 0 ? (
-        <ul style={{ listStyle: "none", padding: 0 }}>
-          {organizations.map((org, i) => (
-            <li key={i}>
-              ✔ {org.organization || "LinkedIn Organization"}
-            </li>
-          ))}
-        </ul>
-      ) : orgError ? (
-        <p>⚠ Organization data unavailable (API review pending)</p>
-      ) : (
-        <p>Organization access pending LinkedIn approval.</p>
-      )}
+      <p>
+      🚧 Organization insights will unlock once LinkedIn
+      Community Management API access is approved.
+      </p>
 
       <p style={{ marginTop: "20px" }}>
         <strong>Connected via OAuth 2.0</strong>

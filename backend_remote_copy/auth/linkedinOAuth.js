@@ -15,6 +15,7 @@ const crypto = require("crypto");
 const { saveToken, getToken, removeToken } = require("./oauthHandler");
 
 const router = express.Router();
+const pool = require("../db");
 
 /* =======================
    ENV CONFIG
@@ -61,7 +62,8 @@ const oauthCookieConfig = {
 ======================= */
 // STEP 1 — Start OAuth
 router.get("/linkedin/login", (req, res) => {
-  const userId = req.user?.id || "dev_user";
+  
+  const userId = req.user?.id || 1;
   const state = crypto.randomUUID();
 
   // Guardar state + userId en cookies seguras (15 min)
@@ -246,6 +248,68 @@ router.get("/linkedin/profile", async (req, res) => {
   } catch (err) {
     console.error("❌ LinkedIn profile error:", err.message);
     return res.status(500).json({ error: "Failed to fetch profile" });
+  }
+});
+/* =======================
+   LINKEDIN CONTEXT
+======================= */
+
+router.get("/linkedin/context", async (req, res) => {
+  try {
+    const userId = req.cookies.linkedin_oauth_user || "dev_user";
+
+    const tokenData = getToken(userId, "linkedin");
+
+    if (!tokenData) {
+      return res.status(401).json({
+        connected: false,
+        error: "No LinkedIn token"
+      });
+    }
+
+    // 🔵 PROFILE
+    const profileRes = await axios.get(
+      "https://api.linkedin.com/v2/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+        },
+      }
+    );
+
+    const profile = profileRes.data;
+
+    // 🧠 CONTEXT (memory first)
+    let context =
+      global.metricmindContext?.[userId]?.analysis || null;
+
+    // fallback DB
+    if (!context) {
+      const dbRes = await pool.query(
+        "SELECT last_analysis FROM users WHERE id = $1",
+        [userId]
+      );
+
+      context = dbRes.rows[0]?.last_analysis || null;
+    }
+
+    return res.json({
+      connected: true,
+      profile: {
+        name: profile.name,
+        email: profile.email,
+        picture: profile.picture,
+        sub: profile.sub,
+      },
+      analysis: context,
+    });
+
+  } catch (err) {
+    console.error("❌ LinkedIn context error:", err.message);
+
+    return res.status(500).json({
+      error: "Failed to load LinkedIn context",
+    });
   }
 });
 

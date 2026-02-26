@@ -11,6 +11,7 @@ const verifyJwt = require("./middleware/verifyJwt");
 const syncUser = require("./middleware/syncUser");
 
 const linkedinRoutes = require("./api/linkedin/me");
+
 const linkedinMetrics = require("./metrics/linkedinMetrics");
 const linkedinOrganizations = require("./api/linkedinOrganizations");
 const analyzeWebsite = require("./api/analyzeWebsite");
@@ -57,7 +58,7 @@ app.use("/auth", facebookAuth);
 ========================= */
 
 
-app.use("/api/linkedin", linkedinRoutes);
+app.use("/api/linkedin", verifyJwt, syncUser, linkedinRoutes);
 app.use("/api", verifyJwt, syncUser, linkedinMetrics);
 app.use("/api", verifyJwt, syncUser, linkedinOrganizations);
 
