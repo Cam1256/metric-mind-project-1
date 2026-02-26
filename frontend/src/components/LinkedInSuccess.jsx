@@ -49,7 +49,7 @@ const LinkedInSuccess = () => {
 
   return (
     <div style={{ padding: "60px", textAlign: "center" }}>
-      <h1>🎉 LinkedIn Connected Successfully</h1>
+      <h1>🎉 MetricMind Signal Layer Activated</h1>
 
       {profile && (
         <div style={{ marginTop: "30px" }}>
@@ -66,8 +66,32 @@ const LinkedInSuccess = () => {
         </div>
       )}
 
-      <div style={{ marginTop: "40px", textAlign: "left", maxWidth: "500px", margin: "40px auto" }}>
+      <div
+        style={{
+          marginTop: "40px",
+          textAlign: "left",
+          maxWidth: "500px",
+          margin: "40px auto"
+        }}
+      >
         <h3>🧠 MetricMind Signal Snapshot</h3>
+
+        {/* 🔥 ESTADO DEL MOTOR */}
+        <div
+          style={{
+            background: "#f5f7fa",
+            padding: "10px 14px",
+            borderRadius: "8px",
+            marginBottom: "15px"
+          }}
+        >
+          <p style={{ margin: 0 }}>
+            <strong>Signal Confidence:</strong> EARLY
+          </p>
+          <p style={{ margin: 0 }}>
+            <strong>Learning Mode:</strong> ACTIVE
+          </p>
+        </div>
 
         {analysis ? (
           <>
@@ -85,8 +109,9 @@ const LinkedInSuccess = () => {
       <h3>🏢 Organization Access</h3>
 
       <p>
-      🚧 Organization insights will unlock once LinkedIn
-      Community Management API access is approved.
+      🚧 Organization-level insights pending platform approval.
+      Identity signals already active.
+
       </p>
 
       <p style={{ marginTop: "20px" }}>

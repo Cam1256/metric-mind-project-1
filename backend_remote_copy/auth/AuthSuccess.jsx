@@ -26,7 +26,7 @@ export default function AuthSuccess() {
 
   return (
     <div style={{ textAlign: "center", marginTop: "40px" }}>
-      <h2>🎉 LinkedIn Connected Successfully</h2>
+      <h2>🎉 MetricMind Signal Layer Activated</h2>
       {profile.picture && (
         <img
           src={profile.picture}
