@@ -1,25 +1,30 @@
 const express = require("express");
 const router = express.Router();
-
+const axios = require("axios");
 const { getToken } = require("../../auth/oauthHandler");
-const verifyJwt = require("../../middleware/verifyJwt");
 
-router.get("/me", verifyJwt, async (req, res) => {
+router.get("/me", async (req, res) => {
   try {
-    const token = await getToken(req.user.id);
+    const userId = req.user?.id || "dev_user";
+    const tokenData = getToken(userId, "linkedin");
 
-    const response = await fetch("https://api.linkedin.com/v2/userinfo", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    if (!tokenData) {
+      return res.status(401).json({ error: "No LinkedIn token found" });
+    }
 
-    const data = await response.json();
+    const response = await axios.get(
+      "https://api.linkedin.com/v2/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+        },
+      }
+    );
 
-    res.json(data);
-  } catch (error) {
-    console.error("LinkedIn /me error:", error);
-    res.status(500).json({ error: "LinkedIn fetch failed" });
+    res.json(response.data);
+  } catch (err) {
+    console.error("LinkedIn fetch failed:", err.message);
+    res.status(500).json({ error: "Failed to fetch LinkedIn profile" });
   }
 });
 

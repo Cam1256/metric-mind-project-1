@@ -58,6 +58,10 @@ const ScraperForm = () => {
         setError(data.error || "Error scraping website");
       } else {
         setResult(data);
+        localStorage.setItem(
+          "metricmind_last_analysis",
+          JSON.stringify(data)
+        );
       }
     } catch (err) {
       setError("Connection error. Please try again.");

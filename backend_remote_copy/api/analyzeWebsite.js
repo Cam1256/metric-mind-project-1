@@ -21,6 +21,24 @@ async function analyzeWebsite(req, res) {
       scrapingResult
     });
 
+    await pool.query(
+      `
+      UPDATE users
+      SET last_analysis = $1
+      WHERE id = $2
+      `,
+      [snapshot, userId]
+    );
+
+    global.metricmindContext = global.metricmindContext || {};
+
+    global.metricmindContext[userId] = {
+      analysis: snapshot,
+      timestamp: Date.now(),
+    };
+
+    console.log("🧠 Analysis context saved for user:", userId);
+
     return res.json(snapshot);
 
   } catch (error) {
