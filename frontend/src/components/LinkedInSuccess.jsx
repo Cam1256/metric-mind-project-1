@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 
 const LinkedInSuccess = () => {
 
@@ -6,6 +8,7 @@ const LinkedInSuccess = () => {
   
   const [loading, setLoading] = useState(true);
   const [analysis, setAnalysis] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
 
@@ -119,20 +122,20 @@ const LinkedInSuccess = () => {
       </p>
       <p>Scopes granted: openid, profile, email</p>
 
-      <a
-        href="/"
+      <button
+        onClick={() => navigate("/intelligence")}
         style={{
           padding: "10px 20px",
           backgroundColor: "#0073b1",
           color: "white",
-          textDecoration: "none",
+          border: "none",
           borderRadius: "8px",
           marginTop: "20px",
-          display: "inline-block"
+          cursor: "pointer"
         }}
       >
         Go Back to Dashboard
-      </a>
+      </button>
     </div>
   );
 };
