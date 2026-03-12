@@ -1,0 +1,9 @@
+Testing the MetricMind intelligence layer.
+
+MetricMind analyzes publicly observable digital signals to understand the digital presence of organizations.
+
+In this example we analyzed www.procuraduria.gov.co and detected early digital presence indicators.
+
+Insights can be shared directly to LinkedIn to monitor visibility and engagement signals.
+
+#MetricMind
