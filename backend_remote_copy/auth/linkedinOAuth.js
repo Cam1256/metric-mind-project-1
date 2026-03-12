@@ -79,6 +79,7 @@ router.get("/linkedin/login", (req, res) => {
       redirect_uri: REDIRECT_URI,
       scope: LINKEDIN_SCOPES,
       state,
+      prompt: "consent",
     });
 
   console.log("🔗 Redirecting to LinkedIn OAuth");
