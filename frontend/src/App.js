@@ -9,7 +9,15 @@ import AuthCallback from "./components/AuthCallback";
 
 const PrivateRoute = ({ children }) => {
   const auth = useAuth();
-  if (!auth.isAuthenticated) return <Navigate to="/" replace />;
+
+  if (auth.isLoading) {
+    return <div>Loading session...</div>;
+  }
+
+  if (!auth.isAuthenticated && !auth.isLoading) {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 };
 

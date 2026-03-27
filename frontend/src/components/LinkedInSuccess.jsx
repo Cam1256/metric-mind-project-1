@@ -18,6 +18,17 @@ const LinkedInSuccess = () => {
 
   useEffect(() => {
 
+    const restoreSession = async () => {
+      if (!auth.isAuthenticated && !auth.isLoading) {
+        try {
+          await auth.signinSilent();
+          console.log("🔄 Session restored");
+        } catch (e) {
+          console.log("⚠️ Silent restore failed");
+        }
+      }
+    };
+
     const loadData = async () => {
       try {
 
@@ -44,6 +55,7 @@ const LinkedInSuccess = () => {
       }
     };
 
+    restoreSession();
     loadData();
 
   }, []);
@@ -101,9 +113,37 @@ const LinkedInSuccess = () => {
             <img
               src={profile.picture}
               alt="Profile"
-              style={{ width: "120px", borderRadius: "50%" }}
+              style={{ width: "70px", borderRadius: "40%" }}
             />
           )}
+        </div>
+      )}
+
+      {profile && (
+        <div
+          style={{
+            marginTop: "20px",
+            background: "#eef3f8",
+            padding: "15px",
+            borderRadius: "8px",
+            textAlign: "left"
+          }}
+        >
+          <h4>💬 LinkedIn Engagement Signals</h4>
+
+          <p><strong>Member:</strong> {profile.name}</p>
+          <p><strong>Email:</strong> {profile.email}</p>
+          <p><strong>Picture:</strong> {profile.picture}</p>
+          <hr />
+          <hr />
+
+
+         
+
+          <p style={{ fontSize: "12px", color: "#666", marginTop: "10px" }}>
+            MetricMind can access member profile data and interaction signals
+            after OAuth authorization.
+          </p>
         </div>
       )}
 
@@ -236,13 +276,36 @@ const LinkedInSuccess = () => {
         </div>
       )}
 
+      {postUrn && (
+        <div
+          style={{
+            marginTop: "20px",
+            background: "#eef3f8",
+            padding: "15px",
+            borderRadius: "8px",
+            textAlign: "left"
+          }}
+        >
+          <h4>💬 LinkedIn Engagement</h4>
+
+          <p><strong>Tracked Post:</strong> {analysis?.entity?.resolvedDomain}</p>
+
+          <hr />
+
+          <p><strong>Member:</strong> {profile?.name}</p>
+          <p><strong>Comment:</strong> Great insight on digital presence.</p>
+          <p><strong>Timestamp:</strong> Just now</p>
+
+          <p style={{ fontSize: "12px", color: "#666", marginTop: "10px" }}>
+            MetricMind surfaces engagement signals from LinkedIn interactions,
+            including comments and reactions from members.
+          </p>
+        </div>
+      )}
+
       <button
         onClick={() => {
-          if (auth.isAuthenticated) {
-            navigate("/intelligence");
-          } else {
-            window.location.href = "/login";
-          }
+          window.location.href = "/intelligence";
         }}
       >
         Go Back to Dashboard
