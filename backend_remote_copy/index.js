@@ -6,19 +6,20 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const analyzeFactoryRoute = require("./api/agent/analyzeFactory");
 
-const verifyJwt = require("./middleware/verifyJwt");
-const syncUser = require("./middleware/syncUser");
+//const verifyJwt = require("./middleware/verifyJwt");
+//const syncUser = require("./middleware/syncUser");
 
-const linkedinRoutes = require("./api/linkedin/me");
+//const linkedinRoutes = require("./api/linkedin/me");
 
-const linkedinMetrics = require("./metrics/linkedinMetrics");
-const linkedinOrganizations = require("./api/linkedinOrganizations");
-const analyzeWebsite = require("./api/analyzeWebsite");
-const linkedinOAuth = require("./auth/linkedinOAuth");
-const facebookAuth = require("./auth/facebook");
-const scrapWebsite = require("./scraper/webScraper");
-
+//const linkedinMetrics = require("./metrics/linkedinMetrics");
+//const linkedinOrganizations = require("./api/linkedinOrganizations");
+//const analyzeWebsite = require("./api/analyzeWebsite");
+//const linkedinOAuth = require("./auth/linkedinOAuth");
+//const facebookAuth = require("./auth/facebook");
+//const scrapWebsite = require("./scraper/webScraper");
+//const analyzeFactoryRoute = require("./api/agent/analyzeFactory");
 // Metrics
 
 
@@ -50,19 +51,20 @@ app.use(cookieParser());
 app.use(express.json());
 
 
-app.use("/auth", linkedinOAuth);
-app.use("/auth", facebookAuth);
+//app.use("/auth", linkedinOAuth);
+//app.use("/auth", facebookAuth);
 
+app.use("/api/agent", analyzeFactoryRoute);
 /* =========================
    METRICS ROUTES
 ========================= */
 
 
-app.use("/api/linkedin", verifyJwt, syncUser, linkedinRoutes);
-app.use("/api", verifyJwt, syncUser, linkedinMetrics);
-app.use("/api", verifyJwt, syncUser, linkedinOrganizations);
+//app.use("/api/linkedin", verifyJwt, syncUser, linkedinRoutes);
+//app.use("/api", verifyJwt, syncUser, linkedinMetrics);
+//app.use("/api", verifyJwt, syncUser, linkedinOrganizations);
 
-app.post("/api/analyze-website", analyzeWebsite);
+//app.post("/api/analyze-website", analyzeWebsite);
 
 
 

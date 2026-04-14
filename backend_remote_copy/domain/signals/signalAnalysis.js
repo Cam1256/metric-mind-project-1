@@ -63,5 +63,51 @@ function analyzeSignals(signals = []) {
   return analysis;
 }
 
-module.exports = { analyzeSignals };
+/**
+ * Analyze factory/process signals
+ * @param {Array} signals
+ * @returns {Object}
+ */
+function analyzeFactorySignals(signals = []) {
+  const analysis = {
+    warnings: [],
+    insights: []
+  };
+
+  const getSignal = (type) => signals.find(s => s.type === type);
+
+  const stage1 = getSignal("stage1_deviation");
+  const stage2 = getSignal("stage2_deviation");
+  const bottleneck = getSignal("bottleneck");
+
+  // ---- Rule 1: Stage deviations ----
+  if (stage1 && stage1.value > 0.05) {
+    analysis.warnings.push({
+      code: "STAGE1_DEVIATION",
+      message: "Stage 1 is deviating from expected output.",
+      severity: "medium"
+    });
+  }
+
+  if (stage2 && stage2.value > 0.05) {
+    analysis.warnings.push({
+      code: "STAGE2_DEVIATION",
+      message: "Stage 2 is deviating from expected output.",
+      severity: "high"
+    });
+  }
+
+  // ---- Rule 2: Bottleneck detection ----
+  if (bottleneck && bottleneck.value) {
+    analysis.insights.push({
+      code: "BOTTLENECK_DETECTED",
+      message: `Primary bottleneck detected at ${bottleneck.value}.`,
+      impact: "high"
+    });
+  }
+
+  return analysis;
+}
+
+module.exports = { analyzeSignals, analyzeFactorySignals };
 

@@ -1,0 +1,128 @@
+1
+00:00:00,000 --> 00:00:06,000
+Hello LinkedIn team,
+
+2
+00:00:06,000 --> 00:00:12,000
+My name is Cristian, and today I’m presenting MetricMind.
+
+3
+00:00:12,000 --> 00:00:22,000
+MetricMind is a web intelligence platform designed to help users analyze
+and activate digital presence signals through authorized platform connections.
+
+4
+00:00:22,000 --> 00:00:32,000
+Users can access the platform either by creating their own credentials
+or by signing in with Google.
+
+5
+00:00:32,000 --> 00:00:40,000
+In this demonstration,
+I will continue using Google authentication.
+
+6
+00:00:40,000 --> 00:00:58,000
+Once inside, the user can start by entering any website they want to analyze,
+which allows MetricMind to identify publicly available digital signals associated with that domain.
+
+7
+00:00:59,000 --> 00:01:07,000
+At this stage, we see the main analysis panel.
+
+8
+00:01:07,000 --> 00:01:17,000
+Initially, the platform highlights available integrations, such as Meta,
+which will be used in future steps.
+
+9
+00:01:17,000 --> 00:01:27,000
+After entering a website, MetricMind performs a web intelligence scan
+to detect the brand’s digital presence.
+
+10
+00:01:27,000 --> 00:01:37,000
+This includes identifying publicly available signals such as social media profiles
+associated with the website.
+
+11
+00:01:37,000 --> 00:01:47,000
+The goal is to provide users with a structured view of their digital footprint,
+and prepare the environment for authorized connections.
+
+12
+00:01:47,000 --> 00:01:57,000
+Once relevant signals are identified, the user can proceed to connect their accounts,
+including LinkedIn, through secure authorization.
+
+13
+00:01:57,000 --> 00:02:08,000
+At this point, the LinkedIn connection option becomes available.
+
+14
+00:02:08,000 --> 00:02:20,000
+The user is then redirected to LinkedIn to sign in and authorize the application
+through OAuth.
+
+15
+00:02:20,000 --> 00:02:31,000
+This ensures that all interactions with LinkedIn are fully compliant
+and based on explicit user consent.
+
+16
+00:02:31,000 --> 00:02:41,000
+After authorization is completed, MetricMind securely receives the necessary permissions
+to access basic profile data and enable further actions within the platform.
+
+17
+00:02:42,000 --> 00:02:48,000
+Once connected, we can see the initial results based on LinkedIn data.
+
+18
+00:02:48,000 --> 00:02:54,000
+The platform activates signal detection and enables interaction features
+such as content publishing.
+
+19
+00:02:54,000 --> 00:03:00,000
+At this moment, organization-level access is still restricted,
+which is precisely why we are applying for the Community Management API.
+
+20
+00:03:00,000 --> 00:03:05,000
+This approval will allow us to expand these capabilities
+to organization pages.
+
+21
+00:03:05,000 --> 00:03:18,000
+Now, we proceed to create a post directly from MetricMind.
+
+22
+00:03:18,000 --> 00:03:32,000
+The content is published through the LinkedIn integration,
+and once the post is live, we copy its URL.
+
+23
+00:03:32,000 --> 00:03:46,000
+This URL is then used in the tracking section,
+where MetricMind begins monitoring engagement signals.
+
+24
+00:03:46,000 --> 00:04:00,000
+The platform tracks interactions such as comments and activity related to the post,
+providing a structured view of engagement.
+
+25
+00:04:00,000 --> 00:04:14,000
+All data shown here is obtained through authorized interactions
+and user-provided inputs.
+
+26
+00:04:14,000 --> 00:04:28,000
+Finally, this demonstrates how MetricMind connects web intelligence
+with social platform activation in a compliant and user-driven way.
+
+27
+00:04:28,000 --> 00:04:43,000
+Thank you for your time,
+and we look forward to your approval.

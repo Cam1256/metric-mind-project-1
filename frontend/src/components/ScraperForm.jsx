@@ -1,4 +1,4 @@
-  import React, { useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "react-oidc-context"; 
 import LinkedInConnectButton from "./LinkedInConnectButton"; // 👈 Import correcto
 import FacebookConnectButton from "./FacebookConnectButton";
@@ -16,7 +16,31 @@ const ScraperForm = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
+  const [agentResult, setAgentResult] = useState(null);
+  const [agentLoading, setAgentLoading] = useState(false);
  
+
+  const handleAgentAnalyze = async () => {
+    try {
+      setAgentLoading(true);
+      setAgentResult(null);
+
+      const response = await fetch(
+        "http://localhost:5000/api/agent/analyze-factory",
+        {
+          method: "POST",
+        }
+      );
+
+      const data = await response.json();
+
+      setAgentResult(data);
+    } catch (error) {
+      console.error("Agent error:", error);
+    } finally {
+      setAgentLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -173,6 +197,22 @@ const ScraperForm = () => {
         </button>
       </form>
 
+      <button
+          onClick={handleAgentAnalyze}
+          disabled={agentLoading}
+          style={{
+            padding: "10px 16px",
+            backgroundColor: "#111",
+            color: "#fff",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+          }}
+        >
+          {agentLoading ? "Analyzing operations..." : "Analyze Operations (Agent)"}
+      </button>
+      
+
       {error && <p style={{ color: "red" }}>{error}</p>}
 
       {result && (
@@ -261,8 +301,25 @@ const ScraperForm = () => {
         </div>
       )}
 
+      {agentResult && (
+        <div style={{ marginTop: "30px", textAlign: "left" }}>
+          <h3>🧠 Operational Intelligence</h3>
+
+          <h4>Summary</h4>
+          <pre>{JSON.stringify(agentResult.summary, null, 2)}</pre>
+
+          <h4>Insight</h4>
+          <p>{agentResult.insight}</p>
+        </div>
+      )}
+
+      
+
+      </div>
+        
+
   
-    </div>
+    
   );
 };
 
