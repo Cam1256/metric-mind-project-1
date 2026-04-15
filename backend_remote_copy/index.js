@@ -7,6 +7,7 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const analyzeFactoryRoute = require("./api/agent/analyzeFactory");
+const askAgentRoute = require("./api/agent/askAgent");
 
 //const verifyJwt = require("./middleware/verifyJwt");
 //const syncUser = require("./middleware/syncUser");
@@ -55,6 +56,7 @@ app.use(express.json());
 //app.use("/auth", facebookAuth);
 
 app.use("/api/agent", analyzeFactoryRoute);
+app.use("/api/agent", askAgentRoute);
 /* =========================
    METRICS ROUTES
 ========================= */

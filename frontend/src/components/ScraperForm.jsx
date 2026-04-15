@@ -18,6 +18,41 @@ const ScraperForm = () => {
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [agentResult, setAgentResult] = useState(null);
   const [agentLoading, setAgentLoading] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
+
+  const handleAskAgent = async () => {
+    if (!question.trim()) return;
+
+    const userMessage = { role: "user", text: question };
+    setMessages((prev) => [...prev, userMessage]);
+    setQuestion("");
+    setChatLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:5000/api/agent/ask", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ question }),
+      });
+
+      const data = await response.json();
+
+      const agentMessage = {
+        role: "agent",
+        text: data.answer,
+      };
+
+      setMessages((prev) => [...prev, agentMessage]);
+    } catch (err) {
+      console.error("Chat error:", err);
+    } finally {
+      setChatLoading(false);
+    }
+  };
  
 
   const handleAgentAnalyze = async () => {
@@ -312,6 +347,44 @@ const ScraperForm = () => {
           <p>{agentResult.insight}</p>
         </div>
       )}
+
+      <div style={{ marginTop: "40px", textAlign: "left" }}>
+        <h3>💬 Ask your operations</h3>
+
+        {/* Chat history */}
+        <div
+          style={{
+            border: "1px solid #ddd",
+            padding: "10px",
+            minHeight: "200px",
+            marginBottom: "10px",
+          }}
+        >
+          {messages.map((msg, index) => (
+            <div key={index} style={{ marginBottom: "10px" }}>
+              <strong>{msg.role === "user" ? "You" : "Agent"}:</strong>{" "}
+              {msg.text}
+            </div>
+          ))}
+
+          {chatLoading && <div>Agent is thinking...</div>}
+        </div>
+
+        {/* Input */}
+        <input
+          type="text"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Ask about your operations..."
+          style={{
+            width: "70%",
+            padding: "10px",
+            marginRight: "10px",
+          }}
+        />
+
+        <button onClick={handleAskAgent}>Send</button>
+      </div>
 
       
 
