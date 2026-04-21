@@ -2,8 +2,10 @@ const express = require("express");
 const router = express.Router();
 const fs = require("fs");
 const csv = require("csv-parser");
+const { callLLM } = require("../../services/llm/llmClient");
 
 const { mapFactoryRowToSignals } = require("../../domain/signals/factoryMapper");
+let cachedRows = null;
 
 // ==============================
 // 🧠 1. Interpret question
@@ -142,7 +144,10 @@ router.post("/ask", async (req, res) => {
     const intent = interpretQuestion(question);
 
     // 2. Load data
-    const rows = await loadDataset();
+    if (!cachedRows) {
+      cachedRows = await loadDataset();
+    }
+    const rows = cachedRows;
 
     // 3. Query relevant data
     const data = queryData(rows, intent);
@@ -165,7 +170,32 @@ router.post("/ask", async (req, res) => {
     }
 
     // 5. Build response
-    const answer = buildResponse(intent, result);
+    const rawAnswer = buildResponse(intent, result);
+
+
+    let answer;
+
+    try {
+      const finalAnswer = await callLLM([
+        {
+          role: "system",
+          content: `
+    You are an experienced operations advisor analyzing a manufacturing process.
+    Stage 1 and Stage 2 represent sequential production stages.
+    Explain insights clearly, practically, and with operational implications.
+          `,
+        },
+        {
+          role: "user",
+          content: `Insight: ${rawAnswer}`,
+        },
+      ]);
+
+      answer = finalAnswer;
+    } catch (err) {
+      console.error("LLM error:", err.message);
+      answer = rawAnswer; // fallback
+    }
 
     return res.json({
       success: true,

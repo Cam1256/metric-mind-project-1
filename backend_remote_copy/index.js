@@ -35,8 +35,6 @@ app.set("trust proxy", 1);
    GLOBAL MIDDLEWARES
 ========================= */
 
-
-
 // CORS (NECESARIO antes de session)
 app.use(cors({
   origin: [
@@ -44,7 +42,11 @@ app.use(cors({
     "https://www.metricmind.cloud"
   ],
   credentials: true,
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
+
 
 // SESSION (OBLIGATORIO para LinkedIn OAuth)
 app.use(cookieParser());

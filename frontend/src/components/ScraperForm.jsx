@@ -31,7 +31,7 @@ const ScraperForm = () => {
     setChatLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/agent/ask", {
+      const response = await fetch("https://api.metricmind.cloud/api/agent/ask", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -61,7 +61,7 @@ const ScraperForm = () => {
       setAgentResult(null);
 
       const response = await fetch(
-        "http://localhost:5000/api/agent/analyze-factory",
+        "https://api.metricmind.cloud/api/agent/analyze-factory",
         {
           method: "POST",
         }
