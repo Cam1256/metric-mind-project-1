@@ -141,7 +141,94 @@ router.post("/ask", async (req, res) => {
     }
 
     // 1. Interpret
-    const intent = interpretQuestion(question);
+    let intent;
+
+    try {
+      const planRaw = await callLLM([
+        {
+          role: "system",
+          content: `
+      You are an expert operations analyst.
+
+      Your job is to understand user questions about a manufacturing process.
+
+      Map questions to intents:
+
+      - bottleneck → if asking about constraints, slow stages, or limiting factors
+      - performance → if asking how a stage is doing, comparing stages, or which is worse/better
+      - summary → if asking for general overview
+
+      IMPORTANT:
+      - "which stage is worse" = performance
+      - "what is going wrong" = bottleneck
+      - "issues" = bottleneck
+      - "underperforming" = performance
+
+      Respond ONLY with a valid JSON object.
+
+      DO NOT include explanations.
+      DO NOT include text before or after the JSON.
+
+      The JSON must strictly follow this format:
+
+      For bottleneck:
+      { "type": "bottleneck" }
+
+      For performance:
+      { "type": "performance", "target": "Stage1" or "Stage2" }
+
+      For summary:
+      { "type": "summary" }
+
+      If the question compares stages or asks which is worse, ALWAYS return:
+      { "type": "performance", "target": "Stage2" }
+
+      Examples:
+
+      Question: "Where is the bottleneck?"
+      → { "type": "bottleneck" }
+
+      Question: "Which stage is performing worse?"
+      → { "type": "performance", "target": "Stage2" }
+
+      Question: "Is anything going wrong?"
+      → { "type": "bottleneck" }
+
+      Question: "What is the overall situation?"
+      → { "type": "summary" }
+          `,
+        },
+        {
+          role: "user",
+          content: question,
+        },
+      ]);
+
+      intent = JSON.parse(planRaw);
+
+      // 🧠 Validación y normalización del intent
+      if (intent.type === "summary" && question.toLowerCase().includes("worse")) {
+        intent = { type: "performance", target: "Stage2" };
+      }
+
+      // Si es performance pero sin target → inferir
+      if (intent.type === "performance" && !intent.target) {
+        // fallback inteligente
+        if (question.toLowerCase().includes("1")) {
+          intent.target = "Stage1";
+        } else {
+          intent.target = "Stage2";
+        }
+      }
+    console.log("🧠 LLM RAW:", planRaw);
+    console.log("🧠 PARSED INTENT:", intent);
+
+    } catch (err) {
+      console.error("LLM intent error:", err.message);
+
+      // fallback (tu lógica vieja)
+      intent = interpretQuestion(question);
+    }
 
     // 2. Load data
     if (!cachedRows) {
@@ -180,14 +267,37 @@ router.post("/ask", async (req, res) => {
         {
           role: "system",
           content: `
-    You are an experienced operations advisor analyzing a manufacturing process.
-    Stage 1 and Stage 2 represent sequential production stages.
-    Explain insights clearly, practically, and with operational implications.
+      You are a senior operations advisor.
+
+      You analyze manufacturing performance data.
+
+      Your job is to:
+      - explain what is happening
+      - identify problems or inefficiencies
+      - provide clear operational insight
+
+      Be specific and practical.
+      Do NOT return JSON.
+      Respond in natural language.
           `,
         },
         {
           role: "user",
-          content: `Insight: ${rawAnswer}`,
+          content: `
+      User question:
+      ${question}
+
+      Operational data:
+      ${JSON.stringify(result)}
+
+      Analyze this like an experienced operations manager.
+
+      Answer:
+      - What is happening
+      - Which stage is performing worse (if relevant)
+      - Whether there is a problem
+      - Why it matters
+          `,
         },
       ]);
 

@@ -1,10 +1,21 @@
 # Node.js
 node_modules/
-.env
-.DS_Store
-npm-debug.log
-package-lock.json
 
-# React
+# env
+.env
+*.env
+
+# sistema
+.DS_Store
+
+# logs
+logs/
+*.log
+npm-debug.log
+
+# builds
 frontend/node_modules/
 frontend/build/
+
+# 🚨 IMPORTANTE
+*.zip
