@@ -151,6 +151,14 @@ Map questions to intents:
 - bottleneck
 - performance
 - summary
+- recommendation
+- unrelated
+
+Rules:
+
+- If the question is about overall status, general condition, or system state → summary
+- If the question asks what to fix, improve, or prioritize → recommendation
+- If the question is clearly unrelated to manufacturing → unrelated
 
 Return ONLY JSON.
 `
@@ -162,9 +170,32 @@ Return ONLY JSON.
       ]);
 
       intent = JSON.parse(planRaw);
-    } catch (err) {
-      console.error("LLM intent error:", err.message);
-      intent = interpretQuestion(question);
+
+      } catch (err) {
+        console.error("LLM intent error:", err.message);
+        intent = interpretQuestion(question);
+      }
+      // ==========================
+// 🚧 GUARDRAIL REAL (CORRECTO)
+// ==========================
+    // ==========================
+// 🚧 GUARDRAIL DOBLE (REAL)
+// ==========================
+    const q = question.toLowerCase();
+
+    const clearlyUnrelated =
+      q.includes("weather") ||
+      q.includes("joke") ||
+      q.includes("time") ||
+      q.includes("news");
+
+    if (intent.type === "unrelated" || clearlyUnrelated) {
+      return res.json({
+        success: true,
+        question,
+        intent,
+        answer: "I can only help analyze manufacturing operations data. Please ask a relevant question."
+      });
     }
 
     // ==========================
@@ -206,6 +237,11 @@ Return ONLY JSON.
       case "summary":
       default:
         result = generateSummary(rows);
+        break;
+
+      case "recommendation":
+        result = detectBottleneck(rows);
+        break;
     }
 
     const rawAnswer = buildResponse(intent, result);
@@ -222,9 +258,19 @@ Return ONLY JSON.
           content: `
 You are a senior operations advisor.
 
-Always base your answer strictly on data.
+You analyze manufacturing performance data.
+
+Always base your answers strictly on the provided metrics.
 Do NOT speculate.
-Be clear and actionable.
+Be clear, concise, and actionable.
+
+If the question is not related to manufacturing operations or the provided data,
+respond with:
+
+"I can only help analyze manufacturing operations data. Please ask a relevant question."
+
+Do NOT answer unrelated questions.
+Do NOT reuse operational data incorrectly.
 `
         },
         {
@@ -245,7 +291,11 @@ ${rawAnswer}
 Structured data:
 - Stage1 avg: ${stage1Avg.toFixed(2)}
 - Stage2 avg: ${stage2Avg.toFixed(2)}
-- Bottleneck: ${intent.type === "bottleneck" ? result : "N/A"}
+- Bottleneck: ${
+  intent.type === "bottleneck" || intent.type === "recommendation"
+    ? result
+    : "N/A"
+}
 
 Instructions:
 - Identify clearly which stage is worse
@@ -273,6 +323,8 @@ Instructions:
     console.error(err);
     return res.status(500).json({ error: "Internal error" });
   }
+
+
 });
 
 module.exports = router;
