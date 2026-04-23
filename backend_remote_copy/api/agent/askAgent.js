@@ -75,8 +75,7 @@ function analyzePerformance(data, target) {
   let count = 0;
 
   data.forEach((d) => {
-    const value =
-      target === "Stage1" ? d.stage1 : d.stage2;
+    const value = target === "Stage1" ? d.stage1 : d.stage2;
 
     if (!isNaN(value)) {
       total += value;
@@ -84,9 +83,7 @@ function analyzePerformance(data, target) {
     }
   });
 
-  const avg = total / count;
-
-  return { avg };
+  return { avg: total / count };
 }
 
 function detectBottleneck(rows) {
@@ -105,9 +102,7 @@ function detectBottleneck(rows) {
 }
 
 function generateSummary(rows) {
-  return {
-    totalRows: rows.length,
-  };
+  return { totalRows: rows.length };
 }
 
 // ==============================
@@ -116,9 +111,7 @@ function generateSummary(rows) {
 function buildResponse(intent, result) {
   switch (intent.type) {
     case "performance":
-      return `Average performance for ${intent.target} is ${result.avg.toFixed(
-        2
-      )}.`;
+      return `Average performance for ${intent.target} is ${result.avg.toFixed(2)}.`;
 
     case "bottleneck":
       return `${result} is currently acting as the main bottleneck in the system.`;
@@ -132,6 +125,7 @@ function buildResponse(intent, result) {
 // ==============================
 // 🚀 6. Main endpoint
 // ==============================
+
 router.post("/ask", async (req, res) => {
   try {
     const { question } = req.body;
@@ -140,7 +134,9 @@ router.post("/ask", async (req, res) => {
       return res.status(400).json({ error: "Missing question" });
     }
 
-    // 1. Interpret
+    // ==========================
+    // 1. Intent detection (LLM)
+    // ==========================
     let intent;
 
     try {
@@ -148,55 +144,16 @@ router.post("/ask", async (req, res) => {
         {
           role: "system",
           content: `
-      You are an expert operations analyst.
+You are an expert operations analyst.
 
-      Your job is to understand user questions about a manufacturing process.
+Map questions to intents:
 
-      Map questions to intents:
+- bottleneck
+- performance
+- summary
 
-      - bottleneck → if asking about constraints, slow stages, or limiting factors
-      - performance → if asking how a stage is doing, comparing stages, or which is worse/better
-      - summary → if asking for general overview
-
-      IMPORTANT:
-      - "which stage is worse" = performance
-      - "what is going wrong" = bottleneck
-      - "issues" = bottleneck
-      - "underperforming" = performance
-
-      Respond ONLY with a valid JSON object.
-
-      DO NOT include explanations.
-      DO NOT include text before or after the JSON.
-
-      The JSON must strictly follow this format:
-
-      For bottleneck:
-      { "type": "bottleneck" }
-
-      For performance:
-      { "type": "performance", "target": "Stage1" or "Stage2" }
-
-      For summary:
-      { "type": "summary" }
-
-      If the question compares stages or asks which is worse, ALWAYS return:
-      { "type": "performance", "target": "Stage2" }
-
-      Examples:
-
-      Question: "Where is the bottleneck?"
-      → { "type": "bottleneck" }
-
-      Question: "Which stage is performing worse?"
-      → { "type": "performance", "target": "Stage2" }
-
-      Question: "Is anything going wrong?"
-      → { "type": "bottleneck" }
-
-      Question: "What is the overall situation?"
-      → { "type": "summary" }
-          `,
+Return ONLY JSON.
+`
         },
         {
           role: "user",
@@ -205,46 +162,41 @@ router.post("/ask", async (req, res) => {
       ]);
 
       intent = JSON.parse(planRaw);
-
-      // 🧠 Validación y normalización del intent
-      if (intent.type === "summary" && question.toLowerCase().includes("worse")) {
-        intent = { type: "performance", target: "Stage2" };
-      }
-
-      // Si es performance pero sin target → inferir
-      if (intent.type === "performance" && !intent.target) {
-        // fallback inteligente
-        if (question.toLowerCase().includes("1")) {
-          intent.target = "Stage1";
-        } else {
-          intent.target = "Stage2";
-        }
-      }
-    console.log("🧠 LLM RAW:", planRaw);
-    console.log("🧠 PARSED INTENT:", intent);
-
     } catch (err) {
       console.error("LLM intent error:", err.message);
-
-      // fallback (tu lógica vieja)
       intent = interpretQuestion(question);
     }
 
+    // ==========================
     // 2. Load data
+    // ==========================
     if (!cachedRows) {
       cachedRows = await loadDataset();
     }
+
     const rows = cachedRows;
 
-    // 3. Query relevant data
-    const data = queryData(rows, intent);
+    // ==========================
+    // 3. Precompute metrics 🔥
+    // ==========================
+    const stage1Avg = analyzePerformance(
+      queryData(rows, { type: "performance", target: "Stage1" }),
+      "Stage1"
+    ).avg;
 
+    const stage2Avg = analyzePerformance(
+      queryData(rows, { type: "performance", target: "Stage2" }),
+      "Stage2"
+    ).avg;
+
+    // ==========================
+    // 4. Apply reasoning
+    // ==========================
     let result;
 
-    // 4. Apply reasoning
     switch (intent.type) {
       case "performance":
-        result = analyzePerformance(data, intent.target);
+        result = analyzePerformance(queryData(rows, intent), intent.target);
         break;
 
       case "bottleneck":
@@ -256,10 +208,11 @@ router.post("/ask", async (req, res) => {
         result = generateSummary(rows);
     }
 
-    // 5. Build response
     const rawAnswer = buildResponse(intent, result);
 
-
+    // ==========================
+    // 5. LLM explanation 🔥
+    // ==========================
     let answer;
 
     try {
@@ -267,44 +220,46 @@ router.post("/ask", async (req, res) => {
         {
           role: "system",
           content: `
-      You are a senior operations advisor.
+You are a senior operations advisor.
 
-      You analyze manufacturing performance data.
-
-      Your job is to:
-      - explain what is happening
-      - identify problems or inefficiencies
-      - provide clear operational insight
-
-      Be specific and practical.
-      Do NOT return JSON.
-      Respond in natural language.
-          `,
+Always base your answer strictly on data.
+Do NOT speculate.
+Be clear and actionable.
+`
         },
         {
           role: "user",
           content: `
-      User question:
-      ${question}
+User question:
+${question}
 
-      Operational data:
-      ${JSON.stringify(result)}
+Operational metrics:
 
-      Analyze this like an experienced operations manager.
+- Stage1 average performance: ${stage1Avg.toFixed(2)}
+- Stage2 average performance: ${stage2Avg.toFixed(2)}
+- Total records: ${rows.length}
 
-      Answer:
-      - What is happening
-      - Which stage is performing worse (if relevant)
-      - Whether there is a problem
-      - Why it matters
-          `,
-        },
+Computed result:
+${rawAnswer}
+
+Structured data:
+- Stage1 avg: ${stage1Avg.toFixed(2)}
+- Stage2 avg: ${stage2Avg.toFixed(2)}
+- Bottleneck: ${intent.type === "bottleneck" ? result : "N/A"}
+
+Instructions:
+- Identify clearly which stage is worse
+- Explain WHY using numbers
+- Do NOT use hypothetical language
+- Be concise and practical
+`
+        }
       ]);
 
       answer = finalAnswer;
     } catch (err) {
       console.error("LLM error:", err.message);
-      answer = rawAnswer; // fallback
+      answer = rawAnswer;
     }
 
     return res.json({
@@ -313,6 +268,7 @@ router.post("/ask", async (req, res) => {
       intent,
       answer,
     });
+
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Internal error" });
