@@ -2,38 +2,19 @@ const express = require("express");
 const router = express.Router();
 const fs = require("fs");
 const csv = require("csv-parser");
+const { formatDriversTable, formatMermaid } = require("../../domain/output/outputFormatter");
+
 const { callLLM } = require("../../services/llm/llmClient");
 
-const { mapFactoryRowToSignals } = require("../../domain/signals/factoryMapper");
+const { analyzeProduction } = require("../../domain/analysis/productionAnalyzer");
+const { routeDomains } = require("../../domain/routing/domainRouter");
+const { synthesizeInsights } = require("../../domain/synthesis/crossDomainSynthesizer");
+
+
 let cachedRows = null;
 
 // ==============================
-// 🧠 1. Interpret question
-// ==============================
-function interpretQuestion(question = "") {
-  const q = question.toLowerCase();
-
-  if (q.includes("bottleneck")) {
-    return { type: "bottleneck" };
-  }
-
-  if (q.includes("stage 1")) {
-    return { type: "performance", target: "Stage1" };
-  }
-
-  if (q.includes("stage 2")) {
-    return { type: "performance", target: "Stage2" };
-  }
-
-  if (q.includes("summary") || q.includes("overall")) {
-    return { type: "summary" };
-  }
-
-  return { type: "summary" };
-}
-
-// ==============================
-// 📊 2. Load dataset
+// 📊 Load dataset
 // ==============================
 function loadDataset() {
   return new Promise((resolve, reject) => {
@@ -48,84 +29,29 @@ function loadDataset() {
 }
 
 // ==============================
-// 🔍 3. Query layer (IMPORTANT)
+// 🧠 Intent fallback
 // ==============================
-function queryData(rows, intent) {
-  switch (intent.type) {
-    case "performance":
-      return rows.map((row) => ({
-        stage1: parseFloat(row["Stage1.Output.Measurement0.U.Actual"]),
-        stage2: parseFloat(row["Stage2.Output.Measurement0.U.Actual"]),
-      }));
+function interpretQuestion(question = "") {
+  const q = question.toLowerCase();
 
-    case "bottleneck":
-      return rows;
+  if (q.includes("bottleneck")) return { type: "bottleneck" };
+  if (q.includes("stage 1")) return { type: "performance", target: "Stage1" };
+  if (q.includes("stage 2")) return { type: "performance", target: "Stage2" };
 
-    case "summary":
-    default:
-      return rows;
-  }
+  return { type: "summary" };
 }
 
 // ==============================
-// 🧠 4. Reasoning layer
+// 🚀 MAIN ENDPOINT
 // ==============================
-function analyzePerformance(data, target) {
-  let total = 0;
-  let count = 0;
+function cleanJSON(raw) {
+      if (!raw) return raw;
 
-  data.forEach((d) => {
-    const value = target === "Stage1" ? d.stage1 : d.stage2;
-
-    if (!isNaN(value)) {
-      total += value;
-      count++;
+      return raw
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
     }
-  });
-
-  return { avg: total / count };
-}
-
-function detectBottleneck(rows) {
-  let stage1Issues = 0;
-  let stage2Issues = 0;
-
-  rows.forEach((row) => {
-    const s1 = parseFloat(row["Stage1.Output.Measurement0.U.Actual"]);
-    const s2 = parseFloat(row["Stage2.Output.Measurement0.U.Actual"]);
-
-    if (s1 < 0.5) stage1Issues++;
-    if (s2 < 0.5) stage2Issues++;
-  });
-
-  return stage2Issues > stage1Issues ? "Stage2" : "Stage1";
-}
-
-function generateSummary(rows) {
-  return { totalRows: rows.length };
-}
-
-// ==============================
-// 💬 5. Response layer
-// ==============================
-function buildResponse(intent, result) {
-  switch (intent.type) {
-    case "performance":
-      return `Average performance for ${intent.target} is ${result.avg.toFixed(2)}.`;
-
-    case "bottleneck":
-      return `${result} is currently acting as the main bottleneck in the system.`;
-
-    case "summary":
-    default:
-      return `The system processed ${result.totalRows} operational records.`;
-  }
-}
-
-// ==============================
-// 🚀 6. Main endpoint
-// ==============================
-
 router.post("/ask", async (req, res) => {
   try {
     const { question } = req.body;
@@ -135,7 +61,7 @@ router.post("/ask", async (req, res) => {
     }
 
     // ==========================
-    // 1. Intent detection (LLM)
+    // 🧠 1. Intent (LLM)
     // ==========================
     let intent;
 
@@ -144,62 +70,56 @@ router.post("/ask", async (req, res) => {
         {
           role: "system",
           content: `
-You are an expert operations analyst.
+          You are an operations query interpreter.
 
-Map questions to intents:
+          Your job is to understand what the user is asking in a flexible way.
 
-- bottleneck
-- performance
-- summary
-- recommendation
-- unrelated
+          Return ONLY JSON:
+          {
+            "goal": "short description of what the user wants to know",
+            "scope": "broad area (e.g. performance, variability, drivers, overall)",
+            "focus": "optional specific target (e.g. Stage2, temperature, etc.)"
+          }
 
-Rules:
-
-- If the question is about overall status, general condition, or system state → summary
-- If the question asks what to fix, improve, or prioritize → recommendation
-- If the question is clearly unrelated to manufacturing → unrelated
-
-Return ONLY JSON.
-`
+          Do NOT restrict to predefined categories.
+          Do NOT reject valid analytical questions.
+          Do NOT invent scores, ratings, or metrics.
+          Only use values explicitly provided.
+          `
         },
-        {
-          role: "user",
-          content: question,
-        },
+        { role: "user", content: question }
       ]);
+    
+      const cleaned = cleanJSON(planRaw);
+      intent = JSON.parse(cleaned);
+      intent.raw = question;
+    } catch (err) {
+      console.error("Intent fallback:", err.message);
+      intent = interpretQuestion(question);
+    }
 
-      intent = JSON.parse(planRaw);
-
-      } catch (err) {
-        console.error("LLM intent error:", err.message);
-        intent = interpretQuestion(question);
-      }
-      // ==========================
-// 🚧 GUARDRAIL REAL (CORRECTO)
-// ==========================
     // ==========================
-// 🚧 GUARDRAIL DOBLE (REAL)
-// ==========================
+    // 🚧 2. Guardrail
+    // ==========================
     const q = question.toLowerCase();
 
-    const clearlyUnrelated =
+    const unrelated =
       q.includes("weather") ||
       q.includes("joke") ||
-      q.includes("time") ||
-      q.includes("news");
+      q.includes("time");
 
-    if (intent.type === "unrelated" || clearlyUnrelated) {
+    if (unrelated) {
       return res.json({
         success: true,
         question,
         intent,
-        answer: "I can only help analyze manufacturing operations data. Please ask a relevant question."
+        answer:
+          "I can only help analyze manufacturing operations data."
       });
     }
 
     // ==========================
-    // 2. Load data
+    // 📊 3. Load data
     // ==========================
     if (!cachedRows) {
       cachedRows = await loadDataset();
@@ -207,124 +127,126 @@ Return ONLY JSON.
 
     const rows = cachedRows;
 
-    // ==========================
-    // 3. Precompute metrics 🔥
-    // ==========================
-    const stage1Avg = analyzePerformance(
-      queryData(rows, { type: "performance", target: "Stage1" }),
-      "Stage1"
-    ).avg;
-
-    const stage2Avg = analyzePerformance(
-      queryData(rows, { type: "performance", target: "Stage2" }),
-      "Stage2"
-    ).avg;
+    const productionInsight = analyzeProduction(rows, intent);
 
     // ==========================
-    // 4. Apply reasoning
+    // 🔥 4. SIGNALS
     // ==========================
-    let result;
+    
+    
 
-    switch (intent.type) {
-      case "performance":
-        result = analyzePerformance(queryData(rows, intent), intent.target);
-        break;
+    // ==========================
+    // 🔥 5. DOMAIN ROUTER
+    // ==========================
+    const domains = routeDomains(question, intent);
 
-      case "bottleneck":
-        result = detectBottleneck(rows);
-        break;
+    // ==========================
+    // 🔥 6. ANALYSIS (multi-domain ready)
+    // ==========================
+    let insights = [];
 
-      case "summary":
-      default:
-        result = generateSummary(rows);
-        break;
-
-      case "recommendation":
-        result = detectBottleneck(rows);
-        break;
+    if (domains.includes("production")) {
+      insights.push(productionInsight); // 🔥 usa el ya calculado
     }
 
-    const rawAnswer = buildResponse(intent, result);
+    // 🔜 futuro:
+    // if (domains.includes("sales")) { ... }
+    // if (domains.includes("procurement")) { ... }
+
+    if (!insights.length) {
+      return res.json({
+        success: false,
+        error: "No analyzers available for selected domain(s)"
+      });
+    }
 
     // ==========================
-    // 5. LLM explanation 🔥
+    // 🔥 7. SYNTHESIS (GLOBAL BRAIN)
+    // ==========================
+    const synthesis = synthesizeInsights(insights);
+
+    // ==========================
+    // 🤖 8. LLM EXPLANATION
     // ==========================
     let answer;
 
     try {
-      const finalAnswer = await callLLM([
+      answer = await callLLM([
         {
           role: "system",
           content: `
-You are a senior operations advisor.
+          You are a senior operations advisor.
 
-You analyze manufacturing performance data.
-
-Always base your answers strictly on the provided metrics.
-Do NOT speculate.
-Be clear, concise, and actionable.
-
-If the question is not related to manufacturing operations or the provided data,
-respond with:
-
-"I can only help analyze manufacturing operations data. Please ask a relevant question."
-
-Do NOT answer unrelated questions.
-Do NOT reuse operational data incorrectly.
-`
+          Rules:
+          - Use ONLY provided data
+          - Be concise, analytical, actionable
+          - Do NOT hallucinate
+          - Do NOT invent metrics, scores, or values
+          - If a value is not provided, do not mention it
+          - Do not explain severity generically
+          - Instead, reference relative importance (e.g. "highest among detected variables")
+          - Avoid repeating the same structure for each driver
+          - Vary explanation style while staying concise
+          - Indicate relative strength between drivers (e.g. strongest, moderate, secondary)
+          - Do not use exact numbers unless provided
+          `
         },
         {
           role: "user",
           content: `
-User question:
-${question}
+          User question:
+          ${question}
 
-Operational metrics:
+          Domains analyzed:
+          ${domains.join(", ")}
 
-- Stage1 average performance: ${stage1Avg.toFixed(2)}
-- Stage2 average performance: ${stage2Avg.toFixed(2)}
-- Total records: ${rows.length}
+          Key Findings (ranked by importance):
+          ${JSON.stringify(synthesis.topFindings || synthesis.topIssues, null, 2)}
 
-Computed result:
-${rawAnswer}
+          Actions:
+          ${(synthesis.actions || []).join(", ")}
 
-Structured data:
-- Stage1 avg: ${stage1Avg.toFixed(2)}
-- Stage2 avg: ${stage2Avg.toFixed(2)}
-- Bottleneck: ${
-  intent.type === "bottleneck" || intent.type === "recommendation"
-    ? result
-    : "N/A"
-}
+          Summary:
+          ${synthesis.summary}
 
-Instructions:
-- Identify clearly which stage is worse
-- Explain WHY using numbers
-- Do NOT use hypothetical language
-- Be concise and practical
-`
+          You MUST:
+          - Identify the top 2–3 drivers
+          - Rank them by importance
+          - Explain their combined impact
+          - Mention multiple variables when relevant (not just one)
+          Provide:
+          - A ranked list of drivers
+          - Short explanation for each
+          `
         }
       ]);
-
-      answer = finalAnswer;
     } catch (err) {
       console.error("LLM error:", err.message);
-      answer = rawAnswer;
+      answer = "Analysis completed but explanation failed.";
     }
-
+    const structured = {
+      drivers: synthesis.topFindings,
+      actions: synthesis.actions,
+      summary: synthesis.summary,
+      table: formatDriversTable(synthesis.topFindings),
+      mermaid: formatMermaid(synthesis.topFindings)
+    };
+    // ==========================
+    // ✅ 9. FINAL RESPONSE
+    // ==========================
     return res.json({
       success: true,
       question,
       intent,
+      domains,
+      synthesis,
       answer,
+      structured
     });
-
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Internal error" });
-  }
-
-
-});
+    } catch (err) {
+      console.error("Internal error:", err);
+      return res.status(500).json({ error: "Internal error" });
+    }
+    });
 
 module.exports = router;

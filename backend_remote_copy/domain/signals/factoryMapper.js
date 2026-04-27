@@ -1,61 +1,89 @@
 function mapFactoryRowToSignals(row) {
-  // ===== 1. STAGE 1 DEVIATION =====
-  const stage1Actual = parseFloat(row["Stage1.Output.Measurement0.U.Actual"]);
-  const stage1Setpoint = parseFloat(row["Stage1.Output.Measurement0.U.Setpoint"]);
+  const signals = [];
 
-  let stage1Deviation = null;
+  // ==============================
+  // 🔥 1. Stage averages (TODOS los measurements)
+  // ==============================
+  function stageAvg(stage) {
+    let sum = 0;
+    let count = 0;
 
-  if (!isNaN(stage1Actual) && !isNaN(stage1Setpoint) && stage1Setpoint !== 0) {
-    stage1Deviation = Math.abs(stage1Actual - stage1Setpoint) / stage1Setpoint;
+    for (let i = 0; i <= 14; i++) {
+      const val = parseFloat(
+        row[`${stage}.Output.Measurement${i}.U.Actual`]
+      );
+
+      if (!isNaN(val)) {
+        sum += val;
+        count++;
+      }
+    }
+
+    return count ? sum / count : null;
   }
 
-  // ===== 2. STAGE 2 DEVIATION =====
-  const stage2Actual = parseFloat(row["Stage2.Output.Measurement0.U.Actual"]);
-  const stage2Setpoint = parseFloat(row["Stage2.Output.Measurement0.U.Setpoint"]);
+  const s1Avg = stageAvg("Stage1");
+  const s2Avg = stageAvg("Stage2");
 
-  let stage2Deviation = null;
+  signals.push({ type: "stage1_avg", value: s1Avg });
+  signals.push({ type: "stage2_avg", value: s2Avg });
 
-  if (!isNaN(stage2Actual) && !isNaN(stage2Setpoint) && stage2Setpoint !== 0) {
-    stage2Deviation = Math.abs(stage2Actual - stage2Setpoint) / stage2Setpoint;
+  // ==============================
+  // 🔥 2. Deviation (mejorado)
+  // ==============================
+  function stageDeviation(stage) {
+    let sum = 0;
+    let count = 0;
+
+    for (let i = 0; i <= 14; i++) {
+      const actual = parseFloat(
+        row[`${stage}.Output.Measurement${i}.U.Actual`]
+      );
+      const setpoint = parseFloat(
+        row[`${stage}.Output.Measurement${i}.U.Setpoint`]
+      );
+
+      if (!isNaN(actual) && !isNaN(setpoint) && setpoint !== 0) {
+        sum += Math.abs(actual - setpoint) / setpoint;
+        count++;
+      }
+    }
+
+    return count ? sum / count : null;
   }
 
-  // ===== 3. MACHINE STRESS (EJEMPLO SIMPLE) =====
-  const machine1Temp = parseFloat(row["Machine1.Zone1Temperature.C.Actual"]);
-  const machine2Temp = parseFloat(row["Machine2.Zone1Temperature.C.Actual"]);
-
-  let machineStress = 0;
-
-  if (!isNaN(machine1Temp) && machine1Temp > 200) machineStress += 1;
-  if (!isNaN(machine2Temp) && machine2Temp > 200) machineStress += 1;
-
-  // ===== 4. BOTTLENECK DETECTION =====
-  let bottleneck = null;
-
-  if (stage1Deviation > stage2Deviation) {
-    bottleneck = "Stage1";
-  } else if (stage2Deviation > stage1Deviation) {
-    bottleneck = "Stage2";
-  }
-
-  // ===== 5. RETURN SIGNALS =====
-  return [
-  {
+  signals.push({
     type: "stage1_deviation",
-    value: stage1Deviation,
-  },
-  {
+    value: stageDeviation("Stage1"),
+  });
+
+  signals.push({
     type: "stage2_deviation",
-    value: stage2Deviation,
-  },
-  {
-    type: "machine_stress",
-    value: machineStress,
-  },
-  {
-    type: "bottleneck",
-    value: bottleneck,
-  },
-];
+    value: stageDeviation("Stage2"),
+  });
+
+  // ==============================
+  // 🔥 3. Machine conditions (más señales)
+  // ==============================
+  const temp = parseFloat(row["Machine2.Zone1Temperature.C.Actual"]);
+  const rpm = parseFloat(row["Machine2.MotorRPM.C.Actual"]);
+  const pressure = parseFloat(row["Machine2.MaterialPressure.U.Actual"]);
+
+  signals.push({ type: "machine2_temp", value: temp });
+  signals.push({ type: "machine2_rpm", value: rpm });
+  signals.push({ type: "machine2_pressure", value: pressure });
+
+  // ==============================
+  // 🔥 4. Simple bottleneck
+  // ==============================
+  if (s1Avg !== null && s2Avg !== null) {
+    signals.push({
+      type: "bottleneck",
+      value: s2Avg < s1Avg ? "Stage2" : "Stage1",
+    });
+  }
+
+  return signals;
 }
 
 module.exports = { mapFactoryRowToSignals };
