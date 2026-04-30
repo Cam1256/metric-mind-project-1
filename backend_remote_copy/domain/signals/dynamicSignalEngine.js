@@ -112,7 +112,7 @@ function detectDrivers(series, targetSeries) {
 
     const corr = correlation(series[key], targetSeries);
 
-    if (Math.abs(corr) > 0.4) {
+    if (!isNaN(corr)) {
       drivers.push({
         variable: key,
         correlation: corr,
@@ -138,9 +138,7 @@ function runDynamicSignalEngine(rows) {
 
   const targetSeries = buildTargetSeries(series, targets);
 
-  const drivers = detectDrivers(series, targetSeries);
-
-   const sorted = drivers.sort((a, b) => b.strength - a.strength);
+  const sorted = detectDrivers(series, targetSeries);
 
   const topDrivers = sorted.slice(0, 3);
   const secondaryDrivers = sorted.slice(3, 10);

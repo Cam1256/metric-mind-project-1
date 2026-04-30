@@ -77,14 +77,29 @@ router.post("/ask", async (req, res) => {
           Return ONLY JSON:
           {
             "goal": "short description of what the user wants to know",
-            "scope": "broad area (e.g. performance, variability, drivers, overall)",
+            "scope": "broad area such as:
+              - performance
+              - drivers
+              - secondary
+              - weak
+              - risk
+              - variability
+              - stability
+              - comparison
+              - overall",
             "focus": "optional specific target (e.g. Stage2, temperature, etc.)"
-          }
 
-          Do NOT restrict to predefined categories.
-          Do NOT reject valid analytical questions.
-          Do NOT invent scores, ratings, or metrics.
-          Only use values explicitly provided.
+          }
+          Examples of classification:
+          - "Which stage is performing worse?" → scope: "comparison"
+          - "Compare Stage 1 and Stage 2" → scope: "comparison"
+          - "Which stage is more efficient?" → scope: "comparison"
+
+          Rules:
+          - Do NOT restrict to predefined categories
+          - Do NOT reject valid analytical questions
+          - Do NOT invent scores, ratings, or metrics
+          - Only use values explicitly provided
           `
         },
         { role: "user", content: question }
@@ -129,6 +144,22 @@ router.post("/ask", async (req, res) => {
 
     const productionInsight = analyzeProduction(rows, intent);
 
+    // 🔥 BYPASS para comparación (NO pasar por synthesis)
+    if (productionInsight.findings?.[0]?.type === "comparison") {
+      return res.json({
+        success: true,
+        question,
+        intent,
+        domains: ["production"],
+        synthesis: productionInsight, // directo
+        answer: productionInsight.findings[0].message,
+        structured: {
+          summary: productionInsight.findings[0].message,
+          metrics: productionInsight.findings[0].metrics
+        }
+      });
+    }
+
     // ==========================
     // 🔥 4. SIGNALS
     // ==========================
@@ -171,6 +202,29 @@ router.post("/ask", async (req, res) => {
     let answer;
 
     try {
+
+      const scope = intent?.scope || "";
+
+      let instruction = `
+      - Identify the top 2–3 drivers
+      - Rank them by importance
+      - Explain their combined impact
+      `;
+
+      if (scope === "weak") {
+        instruction = `
+      - Identify weak signals (low-impact variables)
+      - Do NOT present them as strongest drivers
+      - Explain why they may still matter
+      `;
+      }
+
+      if (scope === "secondary") {
+        instruction = `
+      - Identify secondary drivers (moderate impact)
+      - Distinguish them from top drivers
+      `;
+      }
       answer = await callLLM([
         {
           role: "system",
@@ -188,6 +242,7 @@ router.post("/ask", async (req, res) => {
           - Avoid repeating the same structure for each driver
           - Vary explanation style while staying concise
           - Indicate relative strength between drivers (e.g. strongest, moderate, secondary)
+          - Adapt terminology to the context (e.g. weak signals should NOT be described as strongest drivers)
           - Do not use exact numbers unless provided
           `
         },
@@ -210,13 +265,11 @@ router.post("/ask", async (req, res) => {
           ${synthesis.summary}
 
           You MUST:
-          - Identify the top 2–3 drivers
-          - Rank them by importance
-          - Explain their combined impact
+          ${instruction}
           - Mention multiple variables when relevant (not just one)
+
           Provide:
-          - A ranked list of drivers
-          - Short explanation for each
+          - A clear structured explanation
           `
         }
       ]);

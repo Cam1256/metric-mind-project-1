@@ -122,18 +122,50 @@ function analyzeProduction(rows, intent = {}) {
   const q = (intent?.raw || "").toLowerCase();
   const scope = intent?.scope || "";
 
-  if (scope === "secondary" || q.includes("secondary") || q.includes("less obvious")) {
-    selectedDrivers = secondaryDrivers;
-  } else if (
-    scope === "risk" ||
-    scope === "weak" ||
-    q.includes("low impact") ||
-    q.includes("risky")
+  if (
+    scope === "comparison" ||
+    q.includes("which stage") ||
+    q.includes("compare")
   ) {
-    selectedDrivers = weakDrivers;
+    const { stage1, stage2 } = extractSeries(rows);
+
+    const stage1Avg = avg(stage1);
+    const stage2Avg = avg(stage2);
+
+    const worse =
+      stage1Avg < stage2Avg ? "Stage1" : "Stage2";
+
+    return {
+      domain: "production",
+      findings: [
+        {
+          type: "comparison",
+          message: `${worse} is performing worse`,
+          metrics: { stage1Avg, stage2Avg }
+        }
+      ],
+      issues: [`${worse} is underperforming`],
+      actions: [`Investigate inefficiencies in ${worse}`],
+      impactScore: Math.abs(stage1Avg - stage2Avg)
+    };
   }
 
-  // fallback inteligente
+  // 🔥 PRIORIDAD 1: fallback por texto (más confiable)
+  if (q.includes("weak") || q.includes("low impact") || q.includes("risky")) {
+    selectedDrivers = weakDrivers;
+
+  } else if (q.includes("secondary") || q.includes("less obvious")) {
+    selectedDrivers = secondaryDrivers;
+
+  // 🔥 PRIORIDAD 2: intent del LLM
+  } else if (scope === "weak" || scope === "risk") {
+    selectedDrivers = weakDrivers;
+
+  } else if (scope === "secondary") {
+    selectedDrivers = secondaryDrivers;
+  }
+
+  // fallback final
   if (!selectedDrivers.length) {
     selectedDrivers = topDrivers;
   }
@@ -164,7 +196,13 @@ function analyzeProduction(rows, intent = {}) {
       "Monitor and stabilize high-impact variables",
       "Reduce variability in critical machine parameters"
     );
-  }
+    }
+  console.log("QUESTION:", q);
+  console.log("top:", topDrivers.length);
+  console.log("secondary:", secondaryDrivers.length);
+  console.log("weak:", weakDrivers.length);
+  console.log("top sample:", topDrivers.slice(0, 2));
+  console.log("weak sample:", weakDrivers.slice(0, 2));
 
   return {
     domain: "production",
