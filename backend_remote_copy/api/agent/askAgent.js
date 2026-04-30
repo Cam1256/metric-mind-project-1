@@ -231,6 +231,9 @@ router.post("/ask", async (req, res) => {
           content: `
           You are a senior operations advisor.
 
+          Always respond in the same language as the user's question.
+          Do not mix languages within a single response.
+
           Rules:
           - Use ONLY provided data
           - Be concise, analytical, actionable
