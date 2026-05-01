@@ -361,7 +361,13 @@ const ScraperForm = () => {
           }}
         >
           {messages.map((msg, index) => (
-            <div key={index} style={{ marginBottom: "10px" }}>
+            <div
+              key={index}
+              style={{
+                marginBottom: "10px",
+                whiteSpace: "pre-line"
+              }}
+            >
               <strong>{msg.role === "user" ? "You" : "Agent"}:</strong>{" "}
               {msg.text}
             </div>

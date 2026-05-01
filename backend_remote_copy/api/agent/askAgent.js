@@ -231,8 +231,60 @@ router.post("/ask", async (req, res) => {
           content: `
           You are a senior operations advisor.
 
+          Use a professional, executive tone suitable for decision-makers.
+
           Always respond in the same language as the user's question.
           Do not mix languages within a single response.
+
+          ${instruction}
+
+          Use EXACTLY this format:
+
+          Main issue: <one sentence>
+
+          Top drivers:
+          - <driver 1>
+          - <driver 2>
+          - <driver 3>
+
+          For each driver, include a short human-readable interpretation of what it represents (e.g. machine temperature, pressure, output).
+
+          Insight: <1–2 sentences explaining what the combination of drivers means>
+          The Insight must explain:
+          - what the pattern of drivers suggests
+          - whether the issue is localized or systemic
+          - why it matters operationally
+          The Insight should connect technical findings to operational or business impact (e.g. efficiency, cost, reliability, throughput).
+          At the end of the Insight, briefly indicate which area should be prioritized first.
+
+          Recommended actions:
+          - <action 1>
+          - <action 2>
+
+          Actions must be specific and tied to the identified drivers (not generic).
+
+          IMPORTANT:
+          - Each section MUST start on a new line
+          - Leave a blank line between sections
+          - Always use bullet points for lists
+          - Never merge sections into a single paragraph
+          - List actions in order of priority (highest impact first).
+
+          Do NOT add extra sections.
+          Do NOT merge sections into paragraphs.
+          Each section must be clearly separated.
+
+          Always match the language of the section headers to the user's question.
+
+          If the user writes in English:
+          - Use "Main issue"
+          - Use "Top drivers"
+          - Use "Recommended actions"
+
+          If the user writes in Spanish:
+          - Use "Problema principal"
+          - Use "Variables clave"
+          - Use "Acciones recomendadas"
 
           Rules:
           - Use ONLY provided data
@@ -267,8 +319,6 @@ router.post("/ask", async (req, res) => {
           Summary:
           ${synthesis.summary}
 
-          You MUST:
-          ${instruction}
           - Mention multiple variables when relevant (not just one)
 
           Provide:
