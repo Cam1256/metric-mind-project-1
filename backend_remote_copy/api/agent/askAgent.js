@@ -8,7 +8,13 @@ const { callLLM } = require("../../services/llm/llmClient");
 
 const { analyzeProduction } = require("../../domain/analysis/productionAnalyzer");
 const { routeDomains } = require("../../domain/routing/domainRouter");
+
+
 const { synthesizeInsights } = require("../../domain/synthesis/crossDomainSynthesizer");
+
+const { classifyResponseMode } = require("../../domain/response/responseModeEngine");
+const { buildSystemPrompt } = require("../../domain/llm/personaController");
+const { buildSystemPatterns } = require("../../domain/synthesis/systemPatterns");
 
 
 let cachedRows = null;
@@ -55,6 +61,7 @@ function cleanJSON(raw) {
 router.post("/ask", async (req, res) => {
   try {
     const { question } = req.body;
+    
 
     if (!question) {
       return res.status(400).json({ error: "Missing question" });
@@ -73,6 +80,8 @@ router.post("/ask", async (req, res) => {
           You are an operations query interpreter.
 
           Your job is to understand what the user is asking in a flexible way.
+
+
 
           Return ONLY JSON:
           {
@@ -100,6 +109,7 @@ router.post("/ask", async (req, res) => {
           - Do NOT reject valid analytical questions
           - Do NOT invent scores, ratings, or metrics
           - Only use values explicitly provided
+
           `
         },
         { role: "user", content: question }
@@ -108,14 +118,23 @@ router.post("/ask", async (req, res) => {
       const cleaned = cleanJSON(planRaw);
       intent = JSON.parse(cleaned);
       intent.raw = question;
+
     } catch (err) {
       console.error("Intent fallback:", err.message);
       intent = interpretQuestion(question);
+      intent.raw = question;
     }
 
     // ==========================
-    // 🚧 2. Guardrail
+    // 2. RESPONSE MODE + PERSONA
     // ==========================
+    const mode = classifyResponseMode(question, intent);
+    const language = /[áéíóúñ]/i.test(question) ? "es" : "en";
+    const systemPrompt = buildSystemPrompt(mode, language);
+    // ==========================
+    // 🚧 Guardrail
+    // ==========================
+    
     const q = question.toLowerCase();
 
     const unrelated =
@@ -150,8 +169,9 @@ router.post("/ask", async (req, res) => {
         success: true,
         question,
         intent,
+        mode, // 👈 agrega esto
         domains: ["production"],
-        synthesis: productionInsight, // directo
+        synthesis: productionInsight,
         answer: productionInsight.findings[0].message,
         structured: {
           summary: productionInsight.findings[0].message,
@@ -195,6 +215,7 @@ router.post("/ask", async (req, res) => {
     // 🔥 7. SYNTHESIS (GLOBAL BRAIN)
     // ==========================
     const synthesis = synthesizeInsights(insights);
+    const systemPatterns = buildSystemPatterns(synthesis.topFindings);
 
     // ==========================
     // 🤖 8. LLM EXPLANATION
@@ -202,134 +223,54 @@ router.post("/ask", async (req, res) => {
     let answer;
 
     try {
-
-      const scope = intent?.scope || "";
-
-      let instruction = `
-      - Identify the top 2–3 drivers
-      - Rank them by importance
-      - Explain their combined impact
-      `;
-
-      if (scope === "weak") {
-        instruction = `
-      - Identify weak signals (low-impact variables)
-      - Do NOT present them as strongest drivers
-      - Explain why they may still matter
-      `;
-      }
-
-      if (scope === "secondary") {
-        instruction = `
-      - Identify secondary drivers (moderate impact)
-      - Distinguish them from top drivers
-      `;
-      }
       answer = await callLLM([
         {
           role: "system",
-          content: `
-          You are a senior operations advisor.
-
-          Use a professional, executive tone suitable for decision-makers.
-
-          Always respond in the same language as the user's question.
-          Do not mix languages within a single response.
-
-          ${instruction}
-
-          Use EXACTLY this format:
-
-          Main issue: <one sentence>
-
-          Top drivers:
-          - <driver 1>
-          - <driver 2>
-          - <driver 3>
-
-          For each driver, include a short human-readable interpretation of what it represents (e.g. machine temperature, pressure, output).
-
-          Insight: <1–2 sentences explaining what the combination of drivers means>
-          The Insight must explain:
-          - what the pattern of drivers suggests
-          - whether the issue is localized or systemic
-          - why it matters operationally
-          The Insight should connect technical findings to operational or business impact (e.g. efficiency, cost, reliability, throughput).
-          At the end of the Insight, briefly indicate which area should be prioritized first.
-
-          Recommended actions:
-          - <action 1>
-          - <action 2>
-
-          Actions must be specific and tied to the identified drivers (not generic).
-
-          IMPORTANT:
-          - Each section MUST start on a new line
-          - Leave a blank line between sections
-          - Always use bullet points for lists
-          - Never merge sections into a single paragraph
-          - List actions in order of priority (highest impact first).
-
-          Do NOT add extra sections.
-          Do NOT merge sections into paragraphs.
-          Each section must be clearly separated.
-
-          Always match the language of the section headers to the user's question.
-
-          If the user writes in English:
-          - Use "Main issue"
-          - Use "Top drivers"
-          - Use "Recommended actions"
-
-          If the user writes in Spanish:
-          - Use "Problema principal"
-          - Use "Variables clave"
-          - Use "Acciones recomendadas"
-
-          Rules:
-          - Use ONLY provided data
-          - Be concise, analytical, actionable
-          - Do NOT hallucinate
-          - Do NOT invent metrics, scores, or values
-          - If a value is not provided, do not mention it
-          - Do not explain severity generically
-          - Instead, reference relative importance (e.g. "highest among detected variables")
-          - Avoid repeating the same structure for each driver
-          - Vary explanation style while staying concise
-          - Indicate relative strength between drivers (e.g. strongest, moderate, secondary)
-          - Adapt terminology to the context (e.g. weak signals should NOT be described as strongest drivers)
-          - Do not use exact numbers unless provided
-          `
+          content: systemPrompt
         },
         {
           role: "user",
           content: `
-          User question:
-          ${question}
+      User question:
+      ${question}
 
-          Domains analyzed:
-          ${domains.join(", ")}
+      IMPORTANT:
+      - Follow the expected response style for this mode: ${mode}
+      - Be concise unless the mode requires structure
 
-          Key Findings (ranked by importance):
-          ${JSON.stringify(synthesis.topFindings || synthesis.topIssues, null, 2)}
+      Domains analyzed:
+      ${domains.join(", ")}
 
-          Actions:
-          ${(synthesis.actions || []).join(", ")}
+      Key findings (structured):
+      Variables:
+      ${synthesis.topFindings.map(d => `- ${d.variable} (strength: ${d.strength})`).join("\n")}
 
-          Summary:
-          ${synthesis.summary}
+      Actions:
+      ${(synthesis.actions || []).join(", ")}
 
-          - Mention multiple variables when relevant (not just one)
+      Summary:
+      ${synthesis.summary}
 
-          Provide:
-          - A clear structured explanation
-          `
+      System patterns:
+      ${systemPatterns.map(p => {
+        if (p.type === "primary_chain") {
+          return `Primary chain: ${p.chain.join(" → ")}`;
+        }
+        if (p.type === "cluster") {
+          return `Cluster (${p.category}): ${p.variables.join(", ")}`;
+        }
+        return "";
+      }).join("\n")}
+
+
+`
         }
       ]);
     } catch (err) {
       console.error("LLM error:", err.message);
       answer = "Analysis completed but explanation failed.";
     }
+
     const structured = {
       drivers: synthesis.topFindings,
       actions: synthesis.actions,
@@ -344,6 +285,7 @@ router.post("/ask", async (req, res) => {
       success: true,
       question,
       intent,
+      mode,
       domains,
       synthesis,
       answer,

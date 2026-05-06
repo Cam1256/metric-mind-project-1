@@ -1,3 +1,48 @@
+// ==============================
+// 🧠 MODE ROUTING (cómo responder)
+// ==============================
+function decideMode(question) {
+  const q = question.toLowerCase();
+
+  // 🔹 explicación simple
+  if (
+    q.includes("what is") ||
+    q.includes("qué es") ||
+    q.includes("define")
+  ) {
+    return "explain";
+  }
+
+  // 🔹 diagnóstico (causa raíz)
+  if (
+    q.includes("why") ||
+    q.includes("causing") ||
+    q.includes("cause") ||
+    q.includes("variability") ||
+    q.includes("problem")
+  ) {
+    return "diagnosis";
+  }
+
+  // 🔹 acción
+  if (
+    q.includes("what should") ||
+    q.includes("qué deberíamos") ||
+    q.includes("qué hacer") ||
+    q.includes("next step") ||
+    q.includes("fix")
+  ) {
+    return "action";
+  }
+
+  // 🔹 fallback
+  return "analysis";
+}
+
+
+// ==============================
+// 🌐 DOMAIN ROUTING (qué analizar)
+// ==============================
 function routeDomains(question, intent) {
   const q = question.toLowerCase();
 
@@ -31,4 +76,8 @@ function routeDomains(question, intent) {
   return ["production"];
 }
 
-module.exports = { routeDomains };
+
+// ==============================
+// 🚀 EXPORTS
+// ==============================
+module.exports = { routeDomains, decideMode };
