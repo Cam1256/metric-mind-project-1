@@ -15,7 +15,7 @@ const { synthesizeInsights } = require("../../domain/synthesis/crossDomainSynthe
 const { classifyResponseMode } = require("../../domain/response/responseModeEngine");
 const { buildSystemPrompt } = require("../../domain/llm/personaController");
 const { buildSystemPatterns } = require("../../domain/synthesis/systemPatterns");
-
+const { getMemory, saveMemory } = require("../../services/memory/memoryService");
 
 let cachedRows = null;
 
@@ -216,6 +216,15 @@ router.post("/ask", async (req, res) => {
     // ==========================
     const synthesis = synthesizeInsights(insights);
     const systemPatterns = buildSystemPatterns(synthesis.topFindings);
+    const organization_id = 1; // 🔥 temporal (luego viene de auth)
+    const department = "production";
+
+    const memory = await getMemory(organization_id, department);
+
+    // convertir a texto entendible por el LLM
+    const memoryContext = memory.length
+      ? memory.map(m => `- ${m.value}`).join("\n")
+      : "No prior knowledge available.";
 
     // ==========================
     // 🤖 8. LLM EXPLANATION
@@ -234,9 +243,16 @@ router.post("/ask", async (req, res) => {
       User question:
       ${question}
 
+      
+
       IMPORTANT:
       - Follow the expected response style for this mode: ${mode}
       - Be concise unless the mode requires structure
+      - Use the known operational context when relevant.
+      - Do not repeat it verbatim. Use it to improve reasoning.
+
+      Known operational context:
+      ${memoryContext}
 
       Domains analyzed:
       ${domains.join(", ")}
@@ -270,6 +286,35 @@ router.post("/ask", async (req, res) => {
       console.error("LLM error:", err.message);
       answer = "Analysis completed but explanation failed.";
     }
+
+    try {
+      const exists = memory.find(m =>
+        m.key === (synthesis.topFindings?.[0]?.variable || "unknown_driver")
+      );
+
+      console.log("TOP FINDINGS:", synthesis.topFindings);
+      console.log("MEMORY EXISTS:", exists);
+      if (!exists && synthesis.topFindings.length > 0) {
+        await saveMemory({
+          organization_id,
+          department,
+          level: "department",
+          type: "insight",
+          key: synthesis.topFindings?.[0]?.variable || "unknown_driver",
+          value: synthesis.summary, // 🔥 vuelve a incluir esto
+          confidence: synthesis.topFindings?.[0]?.strength || 0.5,
+          metadata: {
+            drivers: synthesis.topFindings,
+            pattern: systemPatterns
+          }
+        });
+        console.log("✅ MEMORY SAVED");
+      }
+    } catch (err) {
+    console.error("Memory save error FULL:", err);
+
+  }
+    
 
     const structured = {
       drivers: synthesis.topFindings,
